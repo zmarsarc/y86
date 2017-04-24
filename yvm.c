@@ -4,16 +4,18 @@
 
 // user define type
 typedef unsigned int uint;
+typedef unsigned char ubyte;
 
 // register file
-static uint eax;
-static uint ebx;
-static uint ecx;
-static uint edx;
-static uint esi;
-static uint edi;
-static uint esp;
-static uint ebp;
+static uint eax;  // 0
+static uint ecx;  // 1
+static uint edx;  // 2
+static uint ebx;  // 3
+static uint esp;  // 4
+static uint ebp;  // 5
+static uint esi;  // 6
+static uint edi;  // 7
+static uint nog;  // F
 
 static uint pc;
 static uint stat;
@@ -23,41 +25,30 @@ static char* memory;
 static uint  m_size;
 
 
-#define OUT_OF_MEM 1
-
-uint bin_loader(FILE* fp);
-
-int main(const int argc, char* argv[]) {
-    
-    if (argc < 2) {
-        printf("Usage: yvm binary_file_path");
-        exit(0);
-    }
-
-    m_size = (uint)(0x01 << 16);  // 32K memory
-    if (!(memory = (char*)malloc(sizeof(char) * m_size))) {
-        printf("memory alloc error\n");
-        exit(OUT_OF_MEM);
-    }
-    
-
-
-    // clearup
-    free(memory);
-    memory = NULL;
-    return 0;
+static void select_reg(const ubyte id, uint** reg) {
+    return;
 }
 
-uint bin_loader(FILE* fp, /*out*/ size_t* file_size) {
-    size_t read_in = 1;
-
-    while (read_in != m_size) {
-        if (fread(memory, 1, 1, fp)) {
-            read_in++;
-            continue;
-        }
-        *file_size = read_in - 1;
-        return (uint)0;
-    }
-    return (uint)OUT_OF_MEM;
+static void split_regs(const ubyte reg_file, uint** reg_a, uint** reg_b) {
+    ubyte id_b = (ubyte)(reg_file & 0x0F);
+    ubyte id_a = (ubyte)((reg_file & 0xF0) >> 4);
 }
+
+
+// void process(const ubyte opt, const ubyte regs, const uint arg) {
+//     if (stat == STATUS.HLT) return;
+//     switch (opt) {
+//         case pushl:
+//             *(--esp) = arg;
+//             stat = STATUS.AOK;
+//             break;
+//         case nop:
+//             break;
+//         case halt:
+//             stat = STATUS.HLT;
+//             break
+//         default:
+//             stat = STATUS.INS;
+//             break;
+//     }
+// }

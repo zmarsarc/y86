@@ -43,13 +43,18 @@
 #define pushl    0xa0
 #define popl     0xb0
 
+// status code
+typedef enum {
+    AOK = 1,
+    HLT,
+    ADR,
+    INS
+} STATUS;
 
-// stat code
-#define AOK 1
-#define HLT 2  
-#define ADR 3  // invalid memory address
-#define INS 4  // invalid operation
 
+// function
+
+void process(const unsigned char opt, const unsigned char regs, const unsigned int arg);
 
 
 #endif // _YVM_H_
