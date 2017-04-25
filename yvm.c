@@ -26,12 +26,45 @@ static uint  m_size;
 
 
 static void select_reg(const ubyte id, uint** reg) {
+    switch (id) {
+        case 0x0:
+            *reg = &eax;
+            break;
+        case 0x1:
+            *reg = &ecx;
+            break;
+        case 0x2:
+            *reg = &edx;
+            break;
+        case 0x3:
+            *reg = &ebx;
+            break;
+        case 0x4:
+            *reg = &esp;
+            break;
+        case 0x5:
+            *reg = &ebp;
+            break;
+        case 0x6:
+            *reg = &esi;
+            break;
+        case 0x7:
+            *reg = &edi;
+            break;
+        case 0xF:
+            *reg = &nog;
+            break;
+        default:
+            break;
+    }
     return;
 }
 
 static void split_regs(const ubyte reg_file, uint** reg_a, uint** reg_b) {
     ubyte id_b = (ubyte)(reg_file & 0x0F);
     ubyte id_a = (ubyte)((reg_file & 0xF0) >> 4);
+    select_reg(id_a, reg_a);
+    select_reg(id_b, reg_b);
 }
 
 
