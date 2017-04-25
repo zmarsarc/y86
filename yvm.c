@@ -1,5 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include "yvm.h"
 
 // user define type
@@ -25,7 +23,7 @@ static char* memory;
 static uint  m_size;
 
 
-static void select_reg(const ubyte id, uint** reg) {
+static RESULT select_reg(const ubyte id, uint** reg) {
     switch (id) {
         case 0x0:
             *reg = &eax;
@@ -55,16 +53,16 @@ static void select_reg(const ubyte id, uint** reg) {
             *reg = &nog;
             break;
         default:
-            break;
+            return E_INVALID_REG_ID;
     }
-    return;
+    return S_OK;
 }
 
 static void split_regs(const ubyte reg_file, uint** reg_a, uint** reg_b) {
-    ubyte id_b = (ubyte)(reg_file & 0x0F);
-    ubyte id_a = (ubyte)((reg_file & 0xF0) >> 4);
-    select_reg(id_a, reg_a);
-    select_reg(id_b, reg_b);
+    RESULT ret = S_OK;
+    ret = select_reg((ubyte)((reg_file & 0xF0) >> 4), reg_a);
+    ret = select_reg((ubyte)(reg_file & 0x0F), reg_b);
+    return ret;
 }
 
 

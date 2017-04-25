@@ -52,6 +52,10 @@ typedef enum {
 } STATUS;
 
 
+typedef unsigned int RESULT;
+#define S_OK              (RESULT)0x0
+#define E_INVALID_REG_ID  (RESULT)0x1
+
 // function
 
 void process(const unsigned char opt, const unsigned char regs, const unsigned int arg);
