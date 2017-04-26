@@ -58,7 +58,7 @@ static RESULT select_reg(const ubyte id, uint** reg) {
     return S_OK;
 }
 
-static void split_regs(const ubyte reg_file, uint** reg_a, uint** reg_b) {
+static RESULT split_regs(const ubyte reg_file, uint** reg_a, uint** reg_b) {
     RESULT ret = S_OK;
     ret = select_reg((ubyte)((reg_file & 0xF0) >> 4), reg_a);
     ret = select_reg((ubyte)(reg_file & 0x0F), reg_b);
