@@ -44,13 +44,10 @@
 #define popl     0xb0
 
 // status code
-typedef enum {
-    AOK = 1,
-    HLT,
-    ADR,
-    INS
-} STATUS;
-
+#define AOK 1
+#define HLT 2
+#define ADR 3
+#define INS 4
 
 typedef unsigned int RESULT;
 #define S_OK              (RESULT)0x0
