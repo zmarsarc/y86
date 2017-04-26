@@ -65,20 +65,21 @@ static RESULT split_regs(const ubyte reg_file, uint** reg_a, uint** reg_b) {
 }
 
 
-// void process(const ubyte opt, const ubyte regs, const uint arg) {
-//     if (stat == STATUS.HLT) return;
-//     switch (opt) {
-//         case pushl:
-//             *(--esp) = arg;
-//             stat = STATUS.AOK;
-//             break;
-//         case nop:
-//             break;
-//         case halt:
-//             stat = STATUS.HLT;
-//             break
-//         default:
-//             stat = STATUS.INS;
-//             break;
-//     }
-// }
+extern "C" RESULT process(const ubyte opt, const ubyte regs, const uint arg) {
+    if (stat == HLT) return S_OK;
+    switch (opt) {
+        case pushl:
+            *(--esp) = arg;
+            stat = AOK;
+            break;
+        case nop:
+            break;
+        case halt:
+            stat = HLT;
+            break
+        default:
+            stat = INS;
+            break;
+    }
+    return S_OK;
+}
