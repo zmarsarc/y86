@@ -70,7 +70,7 @@ typedef struct __vm_contetxt {
     unsigned int pc;
     unsigned int flag;
     unsigned int stat;
-    unsigned int* memory;
+    unsigned char* memory;
     unsigned int m_size;
 } vm_context;
 

@@ -168,12 +168,12 @@ extern "C" RESULT process(const ubyte opt, const ubyte regs, const uint arg) {
         case mrmovl:
             if (split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
             tmp = (uint)((arg + *reg_b) % cur_context->m_size);
-            *reg_a = *(cur_context->memory + tmp);
+            *reg_a = *(uint*)(cur_context->memory + tmp);
             break;
         case rmmovl:
             if (split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
             tmp = (uint)((arg + *reg_b) % cur_context->m_size);
-            *(cur_context->memory + tmp) = *reg_a;
+            *(uint*)(cur_context->memory + tmp) = *reg_a;
             break;
         case irmovl:
             tmp = regs | 0xF0;
@@ -187,12 +187,12 @@ extern "C" RESULT process(const ubyte opt, const ubyte regs, const uint arg) {
             break;
         case popl:
             if (split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
-            *reg_a = *(cur_context->memory + cur_context->esp);
+            *reg_a = *(uint*)(cur_context->memory + cur_context->esp);
             cur_context->esp = (uint)((cur_context->esp + sizeof(uint)) % cur_context->m_size);
             break;
         case pushl:
             cur_context->esp = (uint)((cur_context->esp - sizeof(uint)) % cur_context->m_size);
-            *(cur_context->memory + cur_context->esp) = arg;
+            *(uint*)(cur_context->memory + cur_context->esp) = arg;
             break;
         case nop:
             break;
