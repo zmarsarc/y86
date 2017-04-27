@@ -43,6 +43,11 @@
 #define pushl    0xa0
 #define popl     0xb0
 
+// flag mask
+#define F_OVER (unsigned int)0x00000001
+#define F_SIGN (unsigned int)0x00000002
+#define F_ZERO (unsigned int)0x00000004
+
 // status code
 #define AOK 1
 #define HLT 2

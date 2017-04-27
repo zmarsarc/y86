@@ -66,18 +66,51 @@ TEST(test_yvm, OPERATORS) {
 
     EXPECT_EQ(S_OK, process(context, addl, 0x03, 0));
     EXPECT_EQ((unsigned int)0x1234, context->eax);
+    EXPECT_FALSE(context->flag & F_OVER);
+    EXPECT_FALSE(context->flag & F_SIGN);
+    EXPECT_FALSE(context->flag & F_ZERO);
 
     EXPECT_EQ(S_OK, process(context, subl, 0x03, 0));
     EXPECT_EQ((unsigned int)0x1200, context->eax);
+    EXPECT_FALSE(context->flag & F_OVER);
+    EXPECT_FALSE(context->flag & F_SIGN);
+    EXPECT_FALSE(context->flag & F_ZERO);
 
     context->eax = 0xFF00;
     context->ebx = 0x00FF;
 
     EXPECT_EQ(S_OK, process(context, andl, 0x03, 0));
     EXPECT_EQ((unsigned int)0xFFFF, context->eax);
+    EXPECT_FALSE(context->flag & F_OVER);
+    EXPECT_FALSE(context->flag & F_SIGN);
+    EXPECT_FALSE(context->flag & F_ZERO);
 
     EXPECT_EQ(S_OK, process(context, xorl, 0x03, 0));
     EXPECT_EQ((unsigned int)0xFF00, context->eax);
+    EXPECT_FALSE(context->flag & F_OVER);
+    EXPECT_FALSE(context->flag & F_SIGN);
+    EXPECT_FALSE(context->flag & F_ZERO);
+
+    context->eax = 0;
+    context->ebx = 0;
+
+    EXPECT_EQ(S_OK, process(context, xorl, 0x00, 0));
+    EXPECT_FALSE(context->flag & F_OVER);
+    EXPECT_FALSE(context->flag & F_SIGN);
+    EXPECT_TRUE(context->flag & F_ZERO);
+
+    context->ebx = 1;
+    EXPECT_EQ(S_OK, process(context, subl, 0x03, 0));
+    EXPECT_TRUE(context->flag & F_OVER);
+    EXPECT_TRUE(context->flag & F_SIGN);
+    EXPECT_FALSE(context->flag & F_ZERO);
+
+    context->eax = 0xFFFFF;
+    context->ebx = 0xFFFFF000;
+    EXPECT_EQ(S_OK, process(context, addl, 0x03, 0));
+    EXPECT_TRUE(context->flag & F_OVER);
+    EXPECT_FALSE(context->flag & F_SIGN);
+    EXPECT_FALSE(context->flag & F_ZERO);
 
     delete context;
 }
