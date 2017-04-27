@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <iostream>
 #include "yvm.h"
 
 TEST(test_yvm, SET_CONTEXT) {
@@ -65,6 +66,32 @@ TEST(test_yvm, ACCESS_MEMORY) {
     delete context;
 }
 
+TEST(test_yvm, OPERATORS) {
+    vm_context* context = nullptr;
+    context = new vm_context;
+    ASSERT_TRUE(context);
+
+    context->eax = 0x1200;
+    context->ebx = 0x0034;
+
+    EXPECT_EQ(S_OK, process(addl, 0x03, 0));
+    EXPECT_EQ((unsigned int)0x1234, context->eax);
+
+    EXPECT_EQ(S_OK, process(subl, 0x03, 0));
+    EXPECT_EQ((unsigned int)0x1200, context->eax);
+
+    context->eax = 0xFF00;
+    context->ebx = 0x00FF;
+
+    EXPECT_EQ(S_OK, process(andl, 0x03, 0));
+    EXPECT_EQ((unsigned int)0xFFFF, context->eax);
+
+    EXPECT_EQ(S_OK, process(xorl, 0x03, 0));
+    EXPECT_EQ((unsigned int)0xFF00, context->eax);
+
+    delete context;
+}
+
 TEST(test_yvm, OPT_ERROR) {
     vm_context* context = nullptr;
     context = new vm_context;
@@ -93,6 +120,9 @@ TEST(test_yvm, MEMORY_WRITE) {
         context->ecx += (unsigned int)i;
         EXPECT_EQ(S_OK, process(rmmovl, 0x01, 0x0)) << "current ecx is: " << context->ecx;
     } 
+
+    delete [] memory;
+    delete context;
 }
 
 TEST(test_yvm, OPT_HALT) {
