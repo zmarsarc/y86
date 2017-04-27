@@ -76,8 +76,7 @@ typedef struct __vm_contetxt {
 
 
 // function
-extern "C" void set_context(vm_context*);
-extern "C" RESULT process(const unsigned char opt, const unsigned char regs, const unsigned int arg);
+extern "C" RESULT process(vm_context*, const unsigned char opt, const unsigned char regs, const unsigned int arg);
 
 
 #endif // _YVM_H_

@@ -2,22 +2,13 @@
 #include <iostream>
 #include "yvm.h"
 
-TEST(test_yvm, SET_CONTEXT) {
-    vm_context* context = nullptr;
-    context = new vm_context;
-    ASSERT_TRUE(context);
-    set_context(context);
-    delete context;
-}
-
 TEST(test_yvm, SET_AND_READ_RIGISTER) {
     vm_context* context = new vm_context;
-    set_context(context);
 
     unsigned int expect_a = 0x0000ABCD;
     unsigned int expect_b = 0xABCD0000;
-    EXPECT_EQ(S_OK, process(irmovl, 0xF0, expect_a));
-    EXPECT_EQ(S_OK, process(irmovl, 0xF3, expect_b));
+    EXPECT_EQ(S_OK, process(context, irmovl, 0xF0, expect_a));
+    EXPECT_EQ(S_OK, process(context, irmovl, 0xF3, expect_b));
 
     EXPECT_EQ(expect_a, context->eax);
     EXPECT_EQ(expect_b, context->ebx);
@@ -36,7 +27,6 @@ TEST(test_yvm, ACCESS_MEMORY) {
     unsigned char* memory = new unsigned char[context->m_size];
     ASSERT_TRUE(memory);
     context->memory = memory;
-    set_context(context);
 
     unsigned int base_address = (unsigned int)(0x1 << 15); // base address 16k
     int* ptr_write = (int*)(context->memory + base_address);
@@ -44,8 +34,8 @@ TEST(test_yvm, ACCESS_MEMORY) {
         ptr_write[i] = i + 1;
     }
 
-    EXPECT_EQ(S_OK, process(irmovl, 0xF3, (unsigned int)(5 * sizeof(int))));
-    EXPECT_EQ(S_OK, process(mrmovl, 0x03, base_address));
+    EXPECT_EQ(S_OK, process(context, irmovl, 0xF3, (unsigned int)(5 * sizeof(int))));
+    EXPECT_EQ(S_OK, process(context, mrmovl, 0x03, base_address));
     EXPECT_EQ(ptr_write[5], context->eax);
 
     int* ptr_start = (int*)context->memory;
@@ -54,12 +44,12 @@ TEST(test_yvm, ACCESS_MEMORY) {
     context->eax = 0x0;
     context->ecx = 0x0;
     context->esi = 0x0;
-    EXPECT_EQ(S_OK, process(mrmovl, 0x06, 0x0));
-    EXPECT_EQ(S_OK, process(mrmovl, 0x16, (unsigned int)context->m_size));
+    EXPECT_EQ(S_OK, process(context, mrmovl, 0x06, 0x0));
+    EXPECT_EQ(S_OK, process(context, mrmovl, 0x16, (unsigned int)context->m_size));
     EXPECT_EQ(0xFFFF, context->eax);
     EXPECT_EQ(0xFFFF, context->ecx);
 
-    EXPECT_EQ(E_INVALID_REG_ID, process(mrmovl, 0x0C, 0x0));
+    EXPECT_EQ(E_INVALID_REG_ID, process(context, mrmovl, 0x0C, 0x0));
 
     // clean up
     delete [] memory;
@@ -74,19 +64,19 @@ TEST(test_yvm, OPERATORS) {
     context->eax = 0x1200;
     context->ebx = 0x0034;
 
-    EXPECT_EQ(S_OK, process(addl, 0x03, 0));
+    EXPECT_EQ(S_OK, process(context, addl, 0x03, 0));
     EXPECT_EQ((unsigned int)0x1234, context->eax);
 
-    EXPECT_EQ(S_OK, process(subl, 0x03, 0));
+    EXPECT_EQ(S_OK, process(context, subl, 0x03, 0));
     EXPECT_EQ((unsigned int)0x1200, context->eax);
 
     context->eax = 0xFF00;
     context->ebx = 0x00FF;
 
-    EXPECT_EQ(S_OK, process(andl, 0x03, 0));
+    EXPECT_EQ(S_OK, process(context, andl, 0x03, 0));
     EXPECT_EQ((unsigned int)0xFFFF, context->eax);
 
-    EXPECT_EQ(S_OK, process(xorl, 0x03, 0));
+    EXPECT_EQ(S_OK, process(context, xorl, 0x03, 0));
     EXPECT_EQ((unsigned int)0xFF00, context->eax);
 
     delete context;
@@ -96,9 +86,8 @@ TEST(test_yvm, OPT_ERROR) {
     vm_context* context = nullptr;
     context = new vm_context;
     ASSERT_TRUE(context);
-    set_context(context);
 
-    EXPECT_EQ(E_INVALID_OPT, process(0xFF, 0x00, 0x00));
+    EXPECT_EQ(E_INVALID_OPT, process(context, 0xFF, 0x00, 0x00));
 
     delete context;
 }
@@ -118,7 +107,7 @@ TEST(test_yvm, MEMORY_WRITE) {
     context->ecx = 0x0;
     for (size_t i = 0; i != m_size - 4; i += 4) {
         context->ecx += (unsigned int)i;
-        EXPECT_EQ(S_OK, process(rmmovl, 0x01, 0x0)) << "current ecx is: " << context->ecx;
+        EXPECT_EQ(S_OK, process(context, rmmovl, 0x01, 0x0)) << "current ecx is: " << context->ecx;
     } 
 
     delete [] memory;
@@ -129,9 +118,8 @@ TEST(test_yvm, OPT_HALT) {
     vm_context* context = nullptr;
     context = new vm_context;
     ASSERT_TRUE(context);
-    set_context(context);
 
-    EXPECT_EQ(S_HALT, process(halt, 0x00, 0x0));
+    EXPECT_EQ(S_HALT, process(context, halt, 0x00, 0x0));
 
     delete context;
 }
