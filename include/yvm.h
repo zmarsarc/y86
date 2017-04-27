@@ -75,7 +75,6 @@ typedef struct {
 
 // function
 extern "C" void set_context(vm_context*);
-extern "C" RESULT read_register(const unsigned char, unsigned int*);
 extern "C" RESULT process(const unsigned char opt, const unsigned char regs, const unsigned int arg);
 
 

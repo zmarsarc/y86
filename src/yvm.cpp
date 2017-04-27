@@ -19,23 +19,7 @@ typedef unsigned char ubyte;
 
 // context pointer
 static vm_context* cur_context = 0;
-
-
-// register file
-// static uint eax;  // 0
-// static uint ecx;  // 1
-// static uint edx;  // 2
-// static uint ebx;  // 3
-// static uint esp;  // 4
-// static uint ebp;  // 5
-// static uint esi;  // 6
-// static uint edi;  // 7
-static uint nog;  // F
-
-// static uint pc;
-// static uint stat;
-// static uint flag;
-
+static uint nog;  // F register
 static char* memory;
 static uint  m_size;
 
@@ -88,13 +72,6 @@ static RESULT split_regs(const ubyte reg_file, uint** reg_a, uint** reg_b) {
 extern "C" void set_context(vm_context* context) {
     assert(context);
     cur_context = context;
-}
-
-extern "C" RESULT read_register(const ubyte reg_id, uint* ret_value) {
-    uint* reg = 0;
-    if (select_reg(reg_id & 0xF, &reg)) return E_INVALID_REG_ID;
-    *ret_value = *reg;
-    return S_OK;
 }
 
 extern "C" RESULT process(const ubyte opt, const ubyte regs, const uint arg) {
