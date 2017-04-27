@@ -76,6 +76,25 @@ TEST(test_yvm, OPT_ERROR) {
     delete context;
 }
 
+TEST(test_yvm, MEMORY_WRITE) {
+    vm_context* context = nullptr;
+    context = new vm_context;
+    ASSERT_TRUE(context);
+
+    size_t m_size = (size_t)(0x1 << 16);
+    unsigned char* memory = new unsigned char[m_size];
+    ASSERT_TRUE(memory);
+    context->memory = memory;
+    context->m_size = (unsigned int)m_size;
+
+    context->eax = 0xCC;
+    context->ecx = 0x0;
+    for (size_t i = 0; i != m_size - 4; i += 4) {
+        context->ecx += (unsigned int)i;
+        EXPECT_EQ(S_OK, process(rmmovl, 0x01, 0x0)) << "current ecx is: " << context->ecx;
+    } 
+}
+
 TEST(test_yvm, OPT_HALT) {
     vm_context* context = nullptr;
     context = new vm_context;
