@@ -58,7 +58,7 @@ typedef unsigned int RESULT;
 
 
 // context file
-typedef struct {
+typedef struct __vm_contetxt {
     unsigned int eax;  // 0
     unsigned int ecx;  // 1
     unsigned int edx;  // 2
@@ -70,6 +70,8 @@ typedef struct {
     unsigned int pc;
     unsigned int flag;
     unsigned int stat;
+    unsigned int* memory;
+    unsigned int m_size;
 } vm_context;
 
 

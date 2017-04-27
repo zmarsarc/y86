@@ -20,8 +20,6 @@ typedef unsigned char ubyte;
 // context pointer
 static vm_context* cur_context = 0;
 static uint nog;  // F register
-static char* memory;
-static uint  m_size;
 
 // const
 static const uint uint_max = (uint)0xFFFFFFFF;
@@ -164,18 +162,18 @@ extern "C" RESULT process(const ubyte opt, const ubyte regs, const uint arg) {
             cur_context->pc = arg;
             break;
         case ret:
-            cur_context->pc = *(memory + cur_context->esp);
+            cur_context->pc = *(cur_context->memory + cur_context->esp);
             cur_context->esp = (uint)(cur_context->esp + sizeof(uint));
             break;
         case mrmovl:
             if (split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
-            tmp = (uint)(arg + *reg_b);
-            *reg_a = *(memory + tmp);
+            tmp = (uint)((arg + *reg_b) % cur_context->m_size);
+            *reg_a = *(cur_context->memory + tmp);
             break;
         case rmmovl:
             if (split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
-            tmp = (uint)(arg + *reg_b);
-            *(memory + tmp) = *reg_a;
+            tmp = (uint)((arg + *reg_b) % cur_context->m_size);
+            *(cur_context->memory + tmp) = *reg_a;
             break;
         case irmovl:
             tmp = regs | 0xF0;
@@ -189,12 +187,12 @@ extern "C" RESULT process(const ubyte opt, const ubyte regs, const uint arg) {
             break;
         case popl:
             if (split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
-            *reg_a = *(memory + cur_context->esp);
-            cur_context->esp = (uint)(cur_context->esp + sizeof(uint));
+            *reg_a = *(cur_context->memory + cur_context->esp);
+            cur_context->esp = (uint)((cur_context->esp + sizeof(uint)) % cur_context->m_size);
             break;
         case pushl:
-            cur_context->esp = (uint)(cur_context->esp - sizeof(uint));
-            *(memory + cur_context->esp) = arg;
+            cur_context->esp = (uint)((cur_context->esp - sizeof(uint)) % cur_context->m_size);
+            *(cur_context->memory + cur_context->esp) = arg;
             break;
         case nop:
             break;
