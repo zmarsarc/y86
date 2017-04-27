@@ -1,3 +1,4 @@
+#include <assert.h>
 #include "yvm.h"
 
 #define SET_OF (flag |= 0x00000001)
@@ -15,6 +16,10 @@
 // user define type
 typedef unsigned int uint;
 typedef unsigned char ubyte;
+
+// context pointer
+static vm_context* cur_context = 0;
+
 
 // register file
 static uint eax;  // 0
@@ -38,30 +43,32 @@ static uint  m_size;
 static const uint uint_max = (uint)0xFFFFFFFF;
 
 static RESULT select_reg(const ubyte id, uint** reg) {
+    assert(cur_context);
+
     switch (id) {
         case 0x0:
-            *reg = &eax;
+            *reg = &(cur_context->eax);
             break;
         case 0x1:
-            *reg = &ecx;
+            *reg = &(cur_context->ecx);
             break;
         case 0x2:
-            *reg = &edx;
+            *reg = &(cur_context->edx);
             break;
         case 0x3:
-            *reg = &ebx;
+            *reg = &(cur_context->ebx);
             break;
         case 0x4:
-            *reg = &esp;
+            *reg = &(cur_context->esp);
             break;
         case 0x5:
-            *reg = &ebp;
+            *reg = &(cur_context->ebp);
             break;
         case 0x6:
-            *reg = &esi;
+            *reg = &(cur_context->esi);
             break;
         case 0x7:
-            *reg = &edi;
+            *reg = &(cur_context->edi);
             break;
         case 0xF:
             *reg = &nog;
@@ -76,6 +83,11 @@ static RESULT split_regs(const ubyte reg_file, uint** reg_a, uint** reg_b) {
     if (select_reg((ubyte)((reg_file & 0xF0) >> 4), reg_a)) return E_INVALID_REG_ID;
     if (select_reg((ubyte)(reg_file & 0x0F), reg_b)) return E_INVALID_REG_ID;
     return S_OK;
+}
+
+extern "C" void set_context(vm_context* context) {
+    assert(context);
+    cur_context = context;
 }
 
 extern "C" RESULT read_register(const ubyte reg_id, uint* ret_value) {

@@ -57,7 +57,24 @@ typedef unsigned int RESULT;
 #define E_INVALID_OPT     (RESULT)(E_ERROR | 0x0002)
 
 
+// context file
+typedef struct {
+    unsigned int eax;  // 0
+    unsigned int ecx;  // 1
+    unsigned int edx;  // 2
+    unsigned int ebx;  // 3
+    unsigned int esp;  // 4
+    unsigned int ebp;  // 5
+    unsigned int esi;  // 6
+    unsigned int edi;  // 7
+    unsigned int pc;
+    unsigned int flag;
+    unsigned int stat;
+} vm_context;
+
+
 // function
+extern "C" void set_context(vm_context*);
 extern "C" RESULT read_register(const unsigned char, unsigned int*);
 extern "C" RESULT process(const unsigned char opt, const unsigned char regs, const unsigned int arg);
 
