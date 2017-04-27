@@ -50,12 +50,16 @@
 #define INS 4
 
 typedef unsigned int RESULT;
-#define S_OK              (RESULT)0x0
-#define E_INVALID_REG_ID  (RESULT)0x1
+#define S_OK              (RESULT)0x0000
+#define S_HALT            (RESULT)(S_OK | 0x0001)
+#define E_ERROR           (RESULT) 0x1000
+#define E_INVALID_REG_ID  (RESULT)(E_ERROR | 0x0001)
+#define E_INVALID_OPT     (RESULT)(E_ERROR | 0x0002)
+
 
 // function
 
-void process(const unsigned char opt, const unsigned char regs, const unsigned int arg);
+extern "C" RESULT process(const unsigned char opt, const unsigned char regs, const unsigned int arg);
 
 
 #endif // _YVM_H_
