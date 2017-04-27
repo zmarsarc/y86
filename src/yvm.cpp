@@ -73,8 +73,15 @@ static RESULT select_reg(const ubyte id, uint** reg) {
 }
 
 static RESULT split_regs(const ubyte reg_file, uint** reg_a, uint** reg_b) {
-    if (!select_reg((ubyte)((reg_file & 0xF0) >> 4), reg_a)) return E_INVALID_REG_ID;
-    if (!select_reg((ubyte)(reg_file & 0x0F), reg_b)) return E_INVALID_REG_ID;
+    if (select_reg((ubyte)((reg_file & 0xF0) >> 4), reg_a)) return E_INVALID_REG_ID;
+    if (select_reg((ubyte)(reg_file & 0x0F), reg_b)) return E_INVALID_REG_ID;
+    return S_OK;
+}
+
+extern "C" RESULT read_register(const ubyte reg_id, uint* ret_value) {
+    uint* reg = 0;
+    if (select_reg(reg_id & 0xF, &reg)) return E_INVALID_REG_ID;
+    *ret_value = *reg;
     return S_OK;
 }
 
@@ -86,27 +93,27 @@ extern "C" RESULT process(const ubyte opt, const ubyte regs, const uint arg) {
 
     switch (opt) {
         case cmovg:
-            if (!split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
+            if (split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
             *reg_b = (!TST_SF) ? *reg_a : *reg_b;
             break;
         case cmovge:
-            if (!split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
+            if (split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
             *reg_b = (!TST_SF || TST_ZF) ? *reg_a : *reg_b;
             break;
         case cmovne:
-            if (!split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
+            if (split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
             *reg_b = (!TST_ZF) ? *reg_a : *reg_b;
             break;
         case cmove:
-            if (!split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
+            if (split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
             *reg_b = (TST_ZF) ? *reg_a : *reg_b;
             break;
         case cmovl:
-            if (!split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
+            if (split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
             *reg_b = (TST_SF) ? *reg_a : *reg_b;
             break;
         case cmovle:
-            if (!split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
+            if (split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
             // b <- a
             *reg_b = (TST_SF || TST_ZF) ? *reg_a : *reg_b;
             break;
@@ -132,7 +139,7 @@ extern "C" RESULT process(const ubyte opt, const ubyte regs, const uint arg) {
             pc = arg;
             break;
         case xorl:
-            if (!split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
+            if (split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
             tmp = *reg_a ^ *reg_b;
             if ((int)tmp < 0) SET_SF; else CLR_SF;
             if (tmp == (uint)0) SET_ZF; else CLR_ZF;
@@ -140,7 +147,7 @@ extern "C" RESULT process(const ubyte opt, const ubyte regs, const uint arg) {
             *reg_a = tmp;
             break;
         case andl:
-            if (!split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
+            if (split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
             tmp = *reg_a | *reg_b;
             if ((int)tmp < 0) SET_SF; else CLR_SF;
             if (tmp == (uint)0) SET_ZF; else CLR_ZF;
@@ -148,7 +155,7 @@ extern "C" RESULT process(const ubyte opt, const ubyte regs, const uint arg) {
             *reg_a = tmp;
             break;
         case subl:
-            if (!split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
+            if (split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
             tmp = (uint)(*reg_a - *reg_b);
             if ((int)*reg_b > (int)*reg_a) SET_OF; else CLR_OF;
             if ((int)tmp < 0) SET_SF; else CLR_SF;
@@ -156,7 +163,7 @@ extern "C" RESULT process(const ubyte opt, const ubyte regs, const uint arg) {
             *reg_a = tmp;
             break;
         case addl:
-            if (!split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
+            if (split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
             tmp = (uint)(*reg_a + *reg_b);
             if ((*reg_a > uint_max - *reg_b) || (*reg_b > uint_max - *reg_a)) SET_OF; else CLR_OF;
             if ((int)tmp < 0) SET_SF; else CLR_SF;
@@ -171,27 +178,27 @@ extern "C" RESULT process(const ubyte opt, const ubyte regs, const uint arg) {
             esp = (uint)(esp + sizeof(uint));
             break;
         case mrmovl:
-            if (!split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
+            if (split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
             tmp = (uint)(arg + *reg_b);
             *reg_a = *(memory + tmp);
             break;
         case rmmovl:
-            if (!split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
+            if (split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
             tmp = (uint)(arg + *reg_b);
             *(memory + tmp) = *reg_a;
             break;
         case irmovl:
             tmp = regs | 0xF0;
-            if (!split_regs(tmp, &reg_a, &reg_b)) return E_INVALID_REG_ID;
+            if (split_regs(tmp, &reg_a, &reg_b)) return E_INVALID_REG_ID;
             *reg_b = arg;
             break;
         case rrmovl:
-            if (!split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
+            if (split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
             // b <- a
             *reg_b = *reg_a;
             break;
         case popl:
-            if (!split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
+            if (split_regs(regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
             *reg_a = *(memory + esp);
             esp = (uint)(esp + sizeof(uint));
             break;

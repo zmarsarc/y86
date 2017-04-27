@@ -58,7 +58,7 @@ typedef unsigned int RESULT;
 
 
 // function
-
+extern "C" RESULT read_register(const unsigned char, unsigned int*);
 extern "C" RESULT process(const unsigned char opt, const unsigned char regs, const unsigned int arg);
 
 
