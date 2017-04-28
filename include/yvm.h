@@ -89,14 +89,16 @@ typedef struct __vm_contetxt {
     unsigned int ebp;  // 5
     unsigned int esi;  // 6
     unsigned int edi;  // 7
-    unsigned int pc;   // A
-    unsigned int flag; // B
-    unsigned int stat; // C
+    unsigned int pc;   // 8
+    unsigned int flag; // 9
+    unsigned int stat; // A
 	
 	// reserved register address
-	unsigned int __r1; // D
-	unsigned int __r2; // E
-	unsigned int __r3; // F
+	unsigned int __r1; // B
+	unsigned int __r2; // C
+	unsigned int __r3; // D
+	unsigned int __r4; // E
+	unsigned int __r5; // F
 
 	// memory pointer
     unsigned char* memory;
