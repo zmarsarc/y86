@@ -180,12 +180,13 @@ extern "C" RESULT process(vm_context* cur_context, const ubyte opt, const ubyte 
             break;
         case popl:
             if (split_regs(cur_context, regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
-            *reg_a = *(uint*)(cur_context->memory + cur_context->esp);
-            cur_context->esp = (uint)((cur_context->esp + sizeof(uint)) % cur_context->m_size);
+            *reg_a = *((uint*)(cur_context->memory + cur_context->esp));
+            cur_context->esp = (uint)((cur_context->esp + (uint)sizeof(uint)) % cur_context->m_size);
             break;
         case pushl:
-            cur_context->esp = (uint)((cur_context->esp - sizeof(uint)) % cur_context->m_size);
-            *(uint*)(cur_context->memory + cur_context->esp) = arg;
+			if (split_regs(cur_context, regs, &reg_a, &reg_b)) return E_INVALID_REG_ID;
+            cur_context->esp = (uint)((cur_context->esp - (uint)sizeof(uint)) % cur_context->m_size);
+            *(uint*)(cur_context->memory + cur_context->esp) = *reg_a;
             break;
         case nop:
             break;

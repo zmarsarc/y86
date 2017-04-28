@@ -125,6 +125,35 @@ TEST(test_yvm, OPT_ERROR) {
     delete context;
 }
 
+TEST(test_yvm, PUSH_POP) {
+    vm_context* context = nullptr;
+    context = new vm_context;
+    ASSERT_TRUE(context);
+
+    unsigned int m_size = (unsigned int)(0x1 << 16); // 32K
+    unsigned char* memory = new unsigned char[m_size];
+    ASSERT_TRUE(memory);
+
+    context->memory = memory;
+    context->m_size = m_size;
+
+    // setup stack pointer
+    unsigned int stack_base = (unsigned int)(0x1 << 15); // 16K
+    context->esp = stack_base;
+    context->ebp = stack_base;
+
+    EXPECT_EQ(S_OK, process(context, irmovl, 0x00, 0x12345678));
+    EXPECT_EQ(S_OK, process(context, pushl, 0x00, 0x0));
+    EXPECT_EQ(stack_base - sizeof(unsigned), context->esp);
+
+    EXPECT_EQ(S_OK, process(context, popl, 0x30, 0x0));
+    EXPECT_EQ((unsigned)0x12345678, context->ebx);
+    EXPECT_EQ(stack_base, context->esp);
+
+    delete [] memory;
+    delete context;
+}
+
 TEST(test_yvm, MEMORY_WRITE) {
     vm_context* context = nullptr;
     context = new vm_context;
