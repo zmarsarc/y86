@@ -119,7 +119,7 @@ static RESULT I_NOP(vm_context* context, const uint reg_a, const uint reg_b, con
 static RESULT I_RRMOVL(vm_context* context, const uint reg_a, const uint reg_b, const uint arg) {
 	// move the value stored in register b to register a
 	REGISTER_FILE[reg_a] = REGISTER_FILE[reg_b];
-	return S_OK;
+	return (reg_a == PC) ? S_JMP : S_OK;  // write register_pc will trigger jmp
 }
 
 // INS CODE 0x21
@@ -162,7 +162,7 @@ static RESULT I_CMOVG(vm_context* context, const uint reg_a, const uint reg_b, c
 static RESULT I_IRMOVL(vm_context* context, const uint reg_a, const uint reg_b, const uint arg) {
 	// register b <- arg
 	REGISTER_FILE[reg_b] = arg;
-	return S_OK;
+	return (reg_b == PC) ? S_JMP : S_OK;
 }
 
 // INS CODE 0x40
@@ -178,7 +178,7 @@ static RESULT I_MRMOVL(vm_context* context, const uint reg_a, const uint reg_b, 
 	// register a <- arg[register b]
 	uint offset = arg + REGISTER_FILE[reg_b];
 	REGISTER_FILE[reg_a] = MEMORY32(offset);
-	return S_OK;
+	return (reg_a == PC) ? S_JMP : S_OK;
 }
 
 // INS CODE 0x60
@@ -201,7 +201,7 @@ static RESULT I_ADDL(vm_context* context, const uint reg_a, const uint reg_b, co
 	if (result < (int)0) SET_SF; else CLR_SF;
 	if (result == (int)0x0) SET_ZF; else CLR_ZF;
 	REGISTER_FILE[reg_a] = (uint)result;
-	return S_OK;
+	return (reg_a == PC) ? S_JMP : S_OK;
 }
 
 // INS CODE 0x61
@@ -224,7 +224,7 @@ static RESULT I_SUBL(vm_context* context, const uint reg_a, const uint reg_b, co
 	if (result < (int)0) SET_SF; else CLR_SF;
 	if (result == (int)0) SET_ZF; else CLR_ZF;
 	REGISTER_FILE[reg_a] = (uint)result;
-	return S_OK;
+	return (reg_a == PC) ? S_JMP : S_OK;
 }
 
 // INS CODE 0x62
@@ -234,7 +234,7 @@ static RESULT I_ANDL(vm_context* context, const uint reg_a, const uint reg_b, co
 	if (result < (int)0) SET_SF; else CLR_SF;
 	if (result == (int)0) SET_ZF; else CLR_ZF;
 	REGISTER_FILE[reg_a] = (uint)result;
-	return S_OK;
+	return (PC == reg_a) ? S_JMP : S_OK;
 }
 
 // INS CODE 0x63
@@ -244,12 +244,11 @@ static RESULT I_XORL(vm_context* context, const uint reg_a, const uint reg_b, co
 	if (result < (int)0) SET_SF; else CLR_SF;
 	if (result == (int)0) SET_ZF; else CLR_ZF;
 	REGISTER_FILE[reg_a] = (uint)result;
-	return S_OK;
+	return (PC == reg_a) ? S_JMP : S_OK;
 }
 
 // INS CODE 0x70
 static RESULT I_JMP(vm_context* context, const uint reg_a, const uint reg_b, const uint arg) {
-	if (arg >= context->m_size) return E_INVALID_ADDRESS;
 	REGISTER_FILE[PC] = arg;
 	return S_JMP;
 }
@@ -294,12 +293,7 @@ static RESULT I_JG(vm_context* context, const uint reg_a, const uint reg_b, cons
 static RESULT I_CALL(vm_context* context, const uint reg_a, const uint reg_b, const uint arg) {
 	RESULT result = I_PUSHL(context, PC, NREG, 0);
 	if (S_OK != result) return result;
-	result = I_JMP(context, NREG, NREG, arg);
-	if (S_JMP != result) {
-		I_POPL(context, NREG, NREG, 0);
-		return result;
-	}
-	return S_JMP;
+	return I_JMP(context, NREG, NREG, arg);
 }
 
 // INS CODE 0x90
