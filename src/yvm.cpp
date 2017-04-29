@@ -103,7 +103,7 @@ extern "C" RESULT process(vm_context* context, const ubyte opt, const ubyte regs
 // INS CODE 0x00
 static RESULT I_HALT(vm_context* context, const uint reg_a, const uint reg_b, const uint arg) {
 	context->stat = HLT;
-	return S_OK;
+	return S_HALT;
 }
 
 // INS CODE 0x10
