@@ -13,8 +13,7 @@
 #define TST_ZF (uint)(context->flag & F_ZERO)
 
 #define REGISTER_FILE ((unsigned int*)(context))
-#define MEMORY_BASE ((unsigned char*)context->memory)
-#define MEMORY32(X) (*((unsigned int*)(MEMORY_BASE + (X))))
+#define MEMORY32(X) (*((unsigned int*)(mem(context, (X)))))
 
 #define HASSAMESIGN(X, Y) (((X) < 0 && (Y) < 0)||((X) >= 0 && (Y) >= 0))
 
@@ -98,6 +97,9 @@ extern "C" RESULT process(vm_context* context, const ubyte opt, const ubyte regs
 	return result;
 }
 
+static void* mem(vm_context* context, uint offset) {
+	return (void*)(context->memory + (offset % context->m_size));
+}
 
 #pragma region INSTRUCTS
 // ALL INSTRUCTS DEFINED AS FELLOWING
@@ -114,7 +116,7 @@ static RESULT I_NOP(vm_context* context, const uint reg_a, const uint reg_b, con
 }
 
 // INS CODE 0x20
-inline RESULT I_RRMOVL(vm_context* context, const uint reg_a, const uint reg_b, const uint arg) {
+static RESULT I_RRMOVL(vm_context* context, const uint reg_a, const uint reg_b, const uint arg) {
 	// move the value stored in register b to register a
 	REGISTER_FILE[reg_a] = REGISTER_FILE[reg_b];
 	return S_OK;
@@ -166,7 +168,7 @@ static RESULT I_IRMOVL(vm_context* context, const uint reg_a, const uint reg_b, 
 // INS CODE 0x40
 static RESULT I_RMMOVL(vm_context* context, const uint reg_a, const uint reg_b, const uint arg) {
 	// arg[register b] <- register a
-	uint offset = (arg + REGISTER_FILE[reg_b]) % context->m_size;
+	uint offset = arg + REGISTER_FILE[reg_b];
 	MEMORY32(offset) = REGISTER_FILE[reg_a];
 	return S_OK;
 }
@@ -174,7 +176,7 @@ static RESULT I_RMMOVL(vm_context* context, const uint reg_a, const uint reg_b, 
 // INS CODE 0x50
 static RESULT I_MRMOVL(vm_context* context, const uint reg_a, const uint reg_b, const uint arg) {
 	// register a <- arg[register b]
-	uint offset = (arg + REGISTER_FILE[reg_b]) % context->m_size;
+	uint offset = arg + REGISTER_FILE[reg_b];
 	REGISTER_FILE[reg_a] = MEMORY32(offset);
 	return S_OK;
 }
@@ -307,7 +309,7 @@ static RESULT I_RET(vm_context* context, const uint reg_a, const uint reg_b, con
 
 // INS CODE 0xA0
 static RESULT I_PUSHL(vm_context* context, const uint reg_a, const uint reg_b, const uint arg) {
-	unsigned sp_address = (context->esp - 4) % context->m_size;
+	unsigned sp_address = (context->esp - 4);
 	MEMORY32(sp_address) = REGISTER_FILE[reg_a];
 	context->esp = sp_address;
 	return S_OK;
@@ -315,9 +317,9 @@ static RESULT I_PUSHL(vm_context* context, const uint reg_a, const uint reg_b, c
 
 // INS CODE 0xB0
 static RESULT I_POPL(vm_context* context, const uint reg_a, const uint reg_b, const uint arg) {
-	unsigned sp_address = context->esp % context->m_size;
-	REGISTER_FILE[reg_a] = MEMORY32(sp_address);
-	context->esp = sp_address + (uint)sizeof(uint);
+	unsigned sp_address = context->esp;
+	REGISTER_FILE[reg_a] = MEMORY32(context->esp);
+	context->esp += (uint)sizeof(uint);
 	return (PC == reg_a) ? S_JMP : S_OK;
 }
 
