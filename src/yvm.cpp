@@ -21,13 +21,7 @@
 // user define type
 typedef unsigned int uint;
 typedef unsigned char ubyte;
-typedef RESULT(*pINSTRUCT)(vm_context, const uint, const uint, const uint);
-
-
-static bool isValidRegister[] = {
-	true, true, true, true, true, true, true, true,
-	true, true, true, false, false, false, false, true
-};
+typedef RESULT(*pINSTRUCT)(vm_context*, const uint, const uint, const uint);
 
 static RESULT I_HALT(vm_context*, const uint, const uint, const uint);
 static RESULT I_NOP(vm_context*, const uint, const uint, const uint);
@@ -57,47 +51,47 @@ static RESULT I_RET(vm_context*, const uint, const uint, const uint);
 static RESULT I_PUSHL(vm_context*, const uint, const uint, const uint);
 static RESULT I_POPL(vm_context*, const uint, const uint, const uint);
 
+static bool isValidRegister[] = {
+	true, true, true, true, true, true, true, true,
+	true, true, true, false, false, false, false, true
+};
+
+static pINSTRUCT instructs[16][16] {
+	{(pINSTRUCT)I_HALT,},
+	{(pINSTRUCT)I_NOP,},
+	{(pINSTRUCT)I_RRMOVL, (pINSTRUCT)I_CMOVLE, (pINSTRUCT)I_CMOVL, (pINSTRUCT)I_CMOVE, (pINSTRUCT)I_CMOVNE, (pINSTRUCT)I_CMOVGE, (pINSTRUCT)I_CMOVG,},
+	{(pINSTRUCT)I_IRMOVL,},
+	{(pINSTRUCT)I_RMMOVL,},
+	{(pINSTRUCT)I_MRMOVL,},
+	{(pINSTRUCT)I_ADDL, (pINSTRUCT)I_SUBL, (pINSTRUCT)I_ANDL, (pINSTRUCT)I_XORL,},
+	{(pINSTRUCT)I_JMP, (pINSTRUCT)I_JLE, (pINSTRUCT)I_JL, (pINSTRUCT)I_JE, (pINSTRUCT)I_JNE, (pINSTRUCT)I_JGE, (pINSTRUCT)I_JG,},
+	{(pINSTRUCT)I_CALL,},
+	{(pINSTRUCT)I_RET,},
+	{(pINSTRUCT)I_PUSHL,},
+	{(pINSTRUCT)I_POPL,},
+	{nullptr},
+	{nullptr},
+	{nullptr},
+	{nullptr},
+};
+
 extern "C" RESULT process(vm_context* context, const ubyte opt, const ubyte regs, const uint arg) {
 	if (context->stat == HLT) return S_HALT;
+	if (context->stat == INS) return E_INVALID_OPT;
 
 	uint reg_a_id = regs >> 4;
 	uint reg_b_id = regs & 0xF;
 	if (!isValidRegister[reg_a_id] || !isValidRegister[reg_b_id]) return E_INVALID_REG_ID;
 
-	switch (opt) {
-	case cmovg: return I_CMOVG(context, reg_a_id, reg_b_id, arg);
-	case cmovge: return I_CMOVGE(context, reg_a_id, reg_b_id, arg);
-	case cmovne: return I_CMOVNE(context, reg_a_id, reg_b_id, arg);
-	case cmove: return I_CMOVE(context, reg_a_id, reg_b_id, arg);
-	case cmovl: return I_CMOVL(context, reg_a_id, reg_b_id, arg);
-	case cmovle: return I_CMOVLE(context, reg_a_id, reg_b_id, arg);
-	case jg: return I_JG(context, reg_a_id, reg_b_id, arg);
-	case jge: return I_JGE(context, reg_a_id, reg_b_id, arg);
-	case jne: return I_JNE(context, reg_a_id, reg_b_id, arg);
-	case je: return I_JE(context, reg_a_id, reg_b_id, arg);
-	case jl: return I_JL(context, reg_a_id, reg_b_id, arg);
-	case jle: return I_JLE(context, reg_a_id, reg_b_id, arg);
-	case jmp: return I_JMP(context, reg_a_id, reg_b_id, arg);
-	case xorl: return I_XORL(context, reg_a_id, reg_b_id, arg);
-	case andl: return I_ANDL(context, reg_a_id, reg_b_id, arg);
-	case subl: return I_SUBL(context, reg_a_id, reg_b_id, arg);
-	case addl: return I_ADDL(context, reg_a_id, reg_b_id, arg);
-	case call: return I_CALL(context, reg_a_id, reg_b_id, arg);
-	case ret: return I_RET(context, reg_a_id, reg_b_id, arg);
-	case mrmovl: return I_MRMOVL(context, reg_a_id, reg_b_id, arg);
-	case rmmovl: return I_IRMOVL(context, reg_a_id, reg_b_id, arg);
-	case irmovl: return I_IRMOVL(context, reg_a_id, reg_b_id, arg);
-	case rrmovl: return I_RRMOVL(context, reg_a_id, reg_b_id, arg);
-	case popl: return I_POPL(context, reg_a_id, reg_b_id, arg);
-	case pushl: return I_PUSHL(context, reg_a_id, reg_b_id, arg);
-	case nop: return I_NOP(context, reg_a_id, reg_b_id, arg);
-	case halt: return I_HALT(context, reg_a_id, reg_b_id, arg);
-	default:
+	pINSTRUCT ins = ((pINSTRUCT*)instructs)[opt];
+	if (ins == nullptr) {
 		context->stat = INS;
 		return E_INVALID_OPT;
 	}
+	uint result = ins(context, reg_a_id, reg_b_id, arg);
+
 	context->stat = AOK;
-	return S_OK;
+	return result;
 }
 
 // INS CODE 0x00

@@ -136,6 +136,7 @@ TEST(test_yvm, PUSH_POP) {
     vm_context* context = nullptr;
     context = new vm_context;
     ASSERT_TRUE(context);
+	memset(context, 0, sizeof(vm_context));
 
     unsigned int m_size = (unsigned int)(0x1 << 16); // 32K
     unsigned char* memory = new unsigned char[m_size];
