@@ -69,11 +69,11 @@
 #define INS 4
 
 typedef unsigned int RESULT;
-#define S_OK              (RESULT)0x0000
+#define S_OK              (RESULT)0x1000
 #define S_HALT            (RESULT)(S_OK | 0x0001)
 #define S_JMP             (RESULT)(S_OK | 0x0002)
 #define S_FALSE_COND      (RESULT)(S_OK | 0x0003)
-#define E_ERROR           (RESULT) 0x1000
+#define E_ERROR           (RESULT) 0x2000
 #define E_INVALID_REG_ID  (RESULT)(E_ERROR | 0x0001)
 #define E_INVALID_OPT     (RESULT)(E_ERROR | 0x0002)
 #define E_INVALID_ADDRESS (RESULT)(E_ERROR | 0x0003)

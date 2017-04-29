@@ -75,6 +75,7 @@ static pINSTRUCT instructs[16][16] {
 	{nullptr},
 };
 
+
 extern "C" RESULT process(vm_context* context, const ubyte opt, const ubyte regs, const uint arg) {
 	if (context->stat == HLT) return S_HALT;
 	if (context->stat == INS) return E_INVALID_OPT;
@@ -90,9 +91,16 @@ extern "C" RESULT process(vm_context* context, const ubyte opt, const ubyte regs
 	}
 	uint result = ins(context, reg_a_id, reg_b_id, arg);
 
-	context->stat = AOK;
+	if (result & S_OK) {
+		context->stat = AOK;
+		return result;
+	}
 	return result;
 }
+
+
+#pragma region INSTRUCTS
+// ALL INSTRUCTS DEFINED AS FELLOWING
 
 // INS CODE 0x00
 static RESULT I_HALT(vm_context* context, const uint reg_a, const uint reg_b, const uint arg) {
@@ -312,3 +320,7 @@ static RESULT I_POPL(vm_context* context, const uint reg_a, const uint reg_b, co
 	context->esp = sp_address + (uint)sizeof(uint);
 	return (PC == reg_a) ? S_JMP : S_OK;
 }
+
+// END OF INSTRUCTS DEFINIATIONS
+
+#pragma endregion
