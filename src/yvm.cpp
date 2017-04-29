@@ -315,6 +315,6 @@ static RESULT I_PUSHL(vm_context* context, const uint reg_a, const uint reg_b, c
 static RESULT I_POPL(vm_context* context, const uint reg_a, const uint reg_b, const uint arg) {
 	unsigned sp_address = context->esp % context->m_size;
 	REGISTER_FILE[reg_a] = MEMORY32(sp_address);
-	context->esp = sp_address;
+	context->esp = sp_address + (uint)sizeof(uint);
 	return (PC == reg_a) ? S_JMP : S_OK;
 }
