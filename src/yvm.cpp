@@ -16,6 +16,8 @@
 #define MEMORY_BASE ((unsigned char*)context->memory)
 #define MEMORY32(X) (*((unsigned int*)(MEMORY_BASE + (X))))
 
+#define HASSAMESIGN(X, Y) (((X) < 0 && (Y) < 0)||((X) >= 0 && (Y) >= 0))
+
 // user define type
 typedef unsigned int uint;
 typedef unsigned char ubyte;
@@ -100,7 +102,7 @@ extern "C" RESULT process(vm_context* context, const ubyte opt, const ubyte regs
 
 // INS CODE 0x00
 static RESULT I_HALT(vm_context* context, const uint reg_a, const uint reg_b, const uint arg) {
-	context->stat = halt;
+	context->stat = HLT;
 	return S_OK;
 }
 
@@ -178,41 +180,66 @@ static RESULT I_MRMOVL(vm_context* context, const uint reg_a, const uint reg_b, 
 // INS CODE 0x60
 static RESULT I_ADDL(vm_context* context, const uint reg_a, const uint reg_b, const uint arg) {
 	// register a <- register a + register b
-	unsigned result = REGISTER_FILE[reg_a] + REGISTER_FILE[reg_b];
-	if (result < REGISTER_FILE[reg_a] || result < REGISTER_FILE[reg_b]) SET_OF; else CLR_OF;
-	if (result & (unsigned)0x80000000) SET_SF; else CLR_SF;
-	if (result == (unsigned)0x0) SET_ZF; else CLR_ZF;
-	REGISTER_FILE[reg_a] = result;
+	register int a = (int)REGISTER_FILE[reg_a];
+	register int b = (int)REGISTER_FILE[reg_b];
+	register int result = a + b;
+	
+	// overflow ?
+	if (HASSAMESIGN(a, b)) {
+		if ((a >= (int)0 && b >= (int)0 && result < (int)0) ||
+			(a < (int)0 && b < (int)0 && result >= (int)0)) SET_OF;
+		else CLR_OF;
+	}
+	else {
+		CLR_OF;
+	}
+
+	if (result < (int)0) SET_SF; else CLR_SF;
+	if (result == (int)0x0) SET_ZF; else CLR_ZF;
+	REGISTER_FILE[reg_a] = (uint)result;
 	return S_OK;
 }
 
 // INS CODE 0x61
 static RESULT I_SUBL(vm_context* context, const uint reg_a, const uint reg_b, const uint arg) {
 	// register a <- register a - register b
-	// equval to register a + (- register b)
-	REGISTER_FILE[reg_b] = ~REGISTER_FILE[reg_b] + (unsigned)0x1;
-	RESULT result = I_ADDL(context, reg_a, reg_b, arg);
-	REGISTER_FILE[reg_b] = ~REGISTER_FILE[reg_b] + (unsigned)0x1;
+	
+	register int a = (int)REGISTER_FILE[reg_a];
+	register int b = (int)REGISTER_FILE[reg_b];
+	register int result = a - b;
+
+	// overflow ?
+	if (!HASSAMESIGN(a, b)) {
+		if ((a >= (int)0 && b < (int)0 && result < (int)0) ||
+			(a < (int)0 && a >= (int)0 && result >= (int)0)) SET_OF;
+	}
+	else {
+		CLR_OF;
+	}
+
+	if (result < (int)0) SET_SF; else CLR_SF;
+	if (result == (int)0) SET_ZF; else CLR_ZF;
+	REGISTER_FILE[reg_a] = (uint)result;
 	return S_OK;
 }
 
 // INS CODE 0x62
 static RESULT I_ANDL(vm_context* context, const uint reg_a, const uint reg_b, const uint arg) {
 	// register a <- register a & register b
-	unsigned result = REGISTER_FILE[reg_a] & REGISTER_FILE[reg_b];
-	if (result & (unsigned)0x80000000) SET_SF; else CLR_SF;
-	if (result == (unsigned)0x0) SET_ZF; else CLR_ZF;
-	REGISTER_FILE[reg_a] = result;
+	int result = (int)REGISTER_FILE[reg_a] & (int)REGISTER_FILE[reg_b];
+	if (result < (int)0) SET_SF; else CLR_SF;
+	if (result == (int)0) SET_ZF; else CLR_ZF;
+	REGISTER_FILE[reg_a] = (uint)result;
 	return S_OK;
 }
 
 // INS CODE 0x63
 static RESULT I_XORL(vm_context* context, const uint reg_a, const uint reg_b, const uint arg) {
 	// register a <- register a ^ register b
-	unsigned result = REGISTER_FILE[reg_a] ^ REGISTER_FILE[reg_b];
-	if (result & (unsigned)0x80000000) SET_SF; else CLR_SF;
-	if (result == (unsigned)0x0) SET_ZF; else CLR_ZF;
-	REGISTER_FILE[reg_a] = result;
+	int result = (int)REGISTER_FILE[reg_a] ^ (int)REGISTER_FILE[reg_b];
+	if (result < (int)0) SET_SF; else CLR_SF;
+	if (result == (int)0) SET_ZF; else CLR_ZF;
+	REGISTER_FILE[reg_a] = (uint)result;
 	return S_OK;
 }
 
