@@ -74,16 +74,18 @@ class Lexer:
 
     def lookahead(self) -> Token:
         if self._la is None:
-            self.consume()
+            self._la = self._next_token()
         return self._la
 
-    def consume(self):
-        if self._s.lookahead() == EOS:
-            self._la = EOF
-            return
+    def consume(self) -> Token:
+        tk = self.lookahead()
         self._la = self._next_token()
+        return tk
 
     def _next_token(self) -> Token:
+
+        if self._s.lookahead == EOS:
+            return EOF
 
         while self._s.lookahead() in string.whitespace:
             self._s.consume()
