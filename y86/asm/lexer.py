@@ -30,6 +30,7 @@ class Token:
     def value(self) -> str:
         return self._val
 
+
 EOS = '__eos__'
 EOF = Token(TokenType.EOF, 'eof')
 COMMA = Token(TokenType.Comma, ',')
