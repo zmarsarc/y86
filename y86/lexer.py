@@ -57,12 +57,13 @@ class StringStream:
             return self._src[p]
         return EOS
 
-    def consume(self):
+    def consume(self) -> str:
         p = self._p + 1
         if p < len(self._src):
             self._p = p
-            return
+            return self._src[p]
         self._is_eos = True
+        return EOS
 
 
 class Lexer:
@@ -84,7 +85,7 @@ class Lexer:
 
     def _next_token(self) -> Token:
 
-        while self._s.lookahead() in ' \r\n\t':
+        while self._s.lookahead() in string.whitespace:
             self._s.consume()
         if self._s.lookahead() == EOS:
             return EOF
@@ -92,30 +93,47 @@ class Lexer:
         c = self._s.lookahead()
 
         if c == ',':
+            self._s.consume()
             return COMMA
         if c == '(':
+            self._s.consume()
             return LPAREN
         if c == ')':
+            self._s.consume()
             return RPAREN
         if c == '%':
+            self._s.consume()
             return PRESENT
         if c in string.digits:
-            return Token(TokenType.Int, self._read_digit_str())
+            return self._match_number()
         if c in string.ascii_letters:
-            return Token(TokenType.ID, self._read_id_str())
+            return Token(TokenType.ID, self._read_until_not_in_set(string.digits + string.ascii_letters))
         else:
             return Token(TokenType.Invalid, c)
 
-    def _read_digit_str(self) -> str:
+    def _match_number(self) -> Token:
         s = ''
-        while self._s.lookahead() in string.digits:
-            s += self._s.lookahead()
-            self._s.consume()
-        return s
+        
+        if self._s.lookahead() == '0':
+            s += self._s.consume()
 
-    def _read_id_str(self) -> str:
+            if self._s.lookahead() in 'xX' and self._s.lookahead(2) in string.hexdigits:
+                s += self._s.consume() + self._read_until_not_in_set(string.hexdigits)
+                return Token(TokenType.Hex, s)
+
+            if self._s.lookahead() in 'bB' and self._s.lookahead(2) in '01':
+                s += self._s.consume() + self._read_until_not_in_set('01')
+                return Token(TokenType.Bin, s)
+
+            if self._s.lookahead() in 'oO' and self._s.lookahead(2) in '01234567':
+                s += self._s.consume() + self._read_until_not_in_set('01234567')
+                return Token(TokenType.Otc, s)
+                
+        else:
+            return Token(TokenType.Int, self._read_until_not_in_set(string.digits))
+
+    def _read_until_not_in_set(self, set: str) -> str:
         s = ''
-        while self._s.lookahead() in string.digits + string.ascii_letters:
-            s += self._s.lookahead()
-            self._s.consume()
+        while self._s.lookahead() in set:
+            s += self._s.consume()
         return s

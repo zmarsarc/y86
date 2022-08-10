@@ -51,3 +51,18 @@ class TestLexer(unittest.TestCase):
         self.assertTupleEqual((tk.token_type, tk.value), (TokenType.Int, '1235'))
         l.consume()
         self.assertEqual(l.lookahead(), EOF)
+
+    def test_hex(self):
+        l = Lexer(StringStream('0xa1234f'))
+        tk = l.lookahead()
+        self.assertTupleEqual((tk.token_type, tk.value), (TokenType.Hex, '0xa1234f'))
+
+    def test_bin(self):
+        l = Lexer(StringStream('0b11001'))
+        tk = l.lookahead()
+        self.assertTupleEqual((tk.token_type, tk.value), (TokenType.Bin, '0b11001'))
+
+    def tset_oct(self):
+        l = Lexer(StringStream('0o1234567'))
+        tk = l.lookahead()
+        self.assertTupleEqual((tk.token_type, tk.value), (TokenType.Otc, '0o1234567'))
