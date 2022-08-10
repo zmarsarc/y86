@@ -5,7 +5,10 @@ import string
 class TokenType(Enum):
     Invalid = auto()
     ID = auto()
-    Const = auto()
+    Int = auto()
+    Hex = auto()
+    Otc = auto()
+    Bin = auto()
     Comma = auto()
     Lparen = auto()
     Rparen = auto()
@@ -27,21 +30,46 @@ class Token:
     def value(self) -> str:
         return self._val
 
-
+EOS = '__eos__'
 EOF = Token(TokenType.EOF, 'eof')
 COMMA = Token(TokenType.Comma, ',')
 LPAREN = Token(TokenType.Lparen, '(')
 RPAREN = Token(TokenType.Rparen, ')')
 PRESENT = Token(TokenType.Present, '%')
+
+
+class StringStream:
+
+    def __init__(self, src: str) -> None:
+        self._src = src
+        self._p = -1
+        self._is_eos = False
+
+    def lookahead(self, n: int = 1) -> str:
+        if n < 1:
+            raise IndexError()
+
+        if self._is_eos:
+            return EOS
         
+        p = self._p + n
+        if p < len(self._src):
+            return self._src[p]
+        return EOS
+
+    def consume(self):
+        p = self._p + 1
+        if p < len(self._src):
+            self._p = p
+            return
+        self._is_eos = True
+
 
 class Lexer:
     
-    def __init__(self, src: str) -> None:
-        self._source = src
-        self._cur = 0
-        self._la = None
-        self._eof = False
+    def __init__(self, stream: StringStream) -> None:
+        self._s: StringStream = stream
+        self._la: Token = None
 
     def lookahead(self) -> Token:
         if self._la is None:
@@ -49,20 +77,19 @@ class Lexer:
         return self._la
 
     def consume(self):
-        if self._eof:
+        if self._s.lookahead() == EOS:
             self._la = EOF
             return
         self._la = self._next_token()
 
     def _next_token(self) -> Token:
-        try:
-            while self._source[self._cur] in ' \r\n\t':
-                self._cur += 1
-        except IndexError:
-            self._eof = True
+
+        while self._s.lookahead() in ' \r\n\t':
+            self._s.consume()
+        if self._s.lookahead() == EOS:
             return EOF
-        
-        c = self._source[self._cur]
+
+        c = self._s.lookahead()
 
         if c == ',':
             return COMMA
@@ -73,7 +100,7 @@ class Lexer:
         if c == '%':
             return PRESENT
         if c in string.digits:
-            return Token(TokenType.Const, self._read_digit_str())
+            return Token(TokenType.Int, self._read_digit_str())
         if c in string.ascii_letters:
             return Token(TokenType.ID, self._read_id_str())
         else:
@@ -81,28 +108,14 @@ class Lexer:
 
     def _read_digit_str(self) -> str:
         s = ''
-        try:
-            while self._source[self._cur] in string.digits:
-                s += self._source[self._cur]
-                self._cur += 1
-        except IndexError:
-            self._eof = True
-
-        if s == '':
-            raise 'some error' # TODO
-
+        while self._s.lookahead() in string.digits:
+            s += self._s.lookahead()
+            self._s.consume()
         return s
 
     def _read_id_str(self) -> str:
         s = ''
-        try:
-            while self._source[self._cur] in string.digits + string.ascii_letters:
-                s += self._source[self._cur]
-                self._cur += 1
-        except IndexError:
-            self._eof = True
-
-        if s == '':
-            raise 'some error' # TODO
-
+        while self._s.lookahead() in string.digits + string.ascii_letters:
+            s += self._s.lookahead()
+            self._s.consume()
         return s
