@@ -64,16 +64,18 @@ class TestTokenStreamParser(unittest.TestCase):
             self.assertEqual(insts[i].name, r['name'])
             self.assertEqual(insts[i].ra, r['ra'])
 
-    def test_add_sub_and_xor(self):
+    def test_add_sub_and_xor_rrmovl(self):
         tokens = make_inst_ra_rb(opcode.addl, reg.eax, reg.ecx) +\
                 make_inst_ra_rb(opcode.subl, reg.eax, reg.ecx) +\
                 make_inst_ra_rb(opcode.andl, reg.eax, reg.ecx) +\
-                make_inst_ra_rb(opcode.xorl, reg.eax, reg.ecx)
+                make_inst_ra_rb(opcode.xorl, reg.eax, reg.ecx) +\
+                make_inst_ra_rb(opcode.rrmovl, reg.eax, reg.ecx)
         result = [
             {'name': opcode.addl.name, 'ra': reg.eax.name, 'rb': reg.ecx.name},
             {'name': opcode.subl.name, 'ra': reg.eax.name, 'rb': reg.ecx.name},
             {'name': opcode.andl.name, 'ra': reg.eax.name, 'rb': reg.ecx.name},
             {'name': opcode.xorl.name, 'ra': reg.eax.name, 'rb': reg.ecx.name},
+            {'name': opcode.rrmovl.name, 'ra': reg.eax.name, 'rb': reg.ecx.name}
         ]
 
         p = TokenStreamParser(FakeStreamer(tokens))

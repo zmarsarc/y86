@@ -73,8 +73,9 @@ class TokenStreamParser:
             inst.rb = reg.no_reg.name
             return inst
 
-        # addl/subl/andl/xorl need two registers
-        if inst.name in (opcode.andl.name, opcode.subl.name, opcode.addl.name, opcode.xorl.name):
+        # addl/subl/andl/xorl/rrmovl need two registers
+        if inst.name in (opcode.andl.name, opcode.subl.name, opcode.addl.name,
+                         opcode.xorl.name, opcode.rrmovl.name):
             inst.ra = self._match_reg_name().value
             if self._lexer.lookahead().token_type != TokenType.Comma:
                 raise MismatchError(TokenType.Comma, self._lexer.lookahead())
