@@ -31,6 +31,25 @@ class Instruction:
     def var(self) -> Token:
         return self._appendix_var
 
+    def encode(self) -> bytes:
+        code = self.operator.code.to_bytes(1, "little")
+        if self.src_register and self.dst_register:
+            code += ((self.src_register.code << 4) | self.dst_register.code).to_bytes(1, "little")
+        if self.var:
+            num = 0
+            if self.var.token_type == TokenType.Int:
+                num = int(self.var.value)
+            if self.var.token_type == TokenType.Hex:
+                num = int(self.var.value, 16)
+            if self.var.token_type == TokenType.Bin:
+                num = int(self.var.value, 2)
+            if self.var.token_type == TokenType.Otc:
+                num = int(self.var.value, 8)
+            if self.var.token_type == TokenType.ID:
+                pass  # TODO: get label address
+            code += num.to_bytes(4, "little")
+        return code
+
 
 class TokenStreamParser:
     

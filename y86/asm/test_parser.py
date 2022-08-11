@@ -1,5 +1,5 @@
 import unittest
-from .parser import TokenStreamParser
+from .parser import TokenStreamParser, Instruction
 from ..machine import opcode, reg
 from . import lexer
 
@@ -148,3 +148,39 @@ class TestTokenStreamParser(unittest.TestCase):
         self.assertEqual(inst.src_register, reg.eax)
         self.assertEqual(inst.dst_register, reg.ecx)
         self.assertEqual(inst.var.value, '0x123')
+
+
+class TestInstruction(unittest.TestCase):
+
+    def test_nop_halt_ret(self):
+        operators = (opcode.nop, opcode.halt, opcode.ret)
+        result = (b'\x00', b'\x10', b'\x90')
+        for i, op in enumerate(operators):
+            code = Instruction(op).encode()
+            self.assertEqual(code, result[i])
+
+    def test_rrmovl(self):
+        op = Instruction(opcode.rrmovl, src_reg=reg.eax, dst_reg=reg.ecx)
+        self.assertEqual(op.encode(), b'\x20\x01')
+
+    def test_irmovl(self):
+        var = lexer.Token(lexer.TokenType.Hex, "0x12345678")
+        op = Instruction(opcode.irmovl, src_reg=reg.no_reg, dst_reg=reg.eax, var=var)
+        self.assertEqual(op.encode(), b'\x30\x80\x78\x56\x34\x12')
+
+    def test_rmmovl(self):
+        var = lexer.Token(lexer.TokenType.Int, "1")
+        op = Instruction(opcode.rmmovl, src_reg=reg.edx, dst_reg=reg.ecx, var=var)
+        self.assertEqual(op.encode(), b'\x40\x21\x01\x00\x00\x00')
+
+    def test_mrmovl(self):
+        var = lexer.Token(lexer.TokenType.Otc, "0o1")
+        op = Instruction(opcode.mrmovl, src_reg=reg.eax, dst_reg=reg.ebx, var=var)
+        self.assertEqual(op.encode(), b'\x50\x03\x01\x00\x00\x00')
+
+    def test_opl(self):
+        operators = (opcode.andl, opcode.xorl, opcode.addl, opcode.subl)
+        result = (b'\x62', b'\x63', b'\x60', b'\x61')
+        for i, op in enumerate(operators):
+            code = Instruction(op, src_reg=reg.eax, dst_reg=reg.ebx)
+            self.assertEqual(code.encode(), result[i] + b'\x03')
