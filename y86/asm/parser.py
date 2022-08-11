@@ -12,6 +12,7 @@ class Instruction:
         self._ra = None
         self._rb = None
         self._dst = ''
+        self._var = ''
 
     @property
     def name(self) -> str:
@@ -44,6 +45,14 @@ class Instruction:
     @dst.setter
     def dst(self, d: str):
         self._dst = d
+
+    @property
+    def var(self) -> str:
+        return self._var
+
+    @var.setter
+    def var(self, v: str):
+        self._var = v
 
 
 class TokenStreamParser:
@@ -90,6 +99,25 @@ class TokenStreamParser:
             if self._lexer.lookahead().token_type != TokenType.ID:
                 raise MismatchError(TokenType.ID, self._lexer.lookahead())
             inst.dst = self._lexer.consume().value
+            return inst
+
+        if inst.name == opcode.irmovl.name:
+            if self._lexer.lookahead().token_type != TokenType.Dollar:
+                raise MismatchError(TokenType.Dollar, self._lexer.lookahead())
+            self._lexer.consume()
+
+            tk = self._lexer.lookahead()
+            if tk.token_type not in (TokenType.Int, TokenType.Bin, TokenType.Hex, TokenType.Otc):
+                raise MismatchError(TokenType.Number, tk)
+            inst.var = self._lexer.consume().value
+
+            if self._lexer.lookahead().token_type != TokenType.Comma:
+                raise MismatchError(TokenType.Comma, self._lexer.lookahead())
+            self._lexer.consume()
+
+            inst.ra = reg.no_reg.name
+            inst.rb = self._match_reg_name().value
+
             return inst
 
     def _match_inst_name(self) -> Token:

@@ -38,6 +38,11 @@ def make_inst_dst(inst: opcode.Instruction, dst: str) -> list[lexer.Token]:
     return [id_token(inst.name), id_token(dst)]
 
 
+def make_inst_ver_reg(inst: opcode.Instruction, ver: int, reg: reg.Register) -> list[lexer.Token]:
+    return [id_token(inst.name), lexer.DOLLAR, lexer.Token(lexer.TokenType.Int, str(ver)),
+            lexer.COMMA, lexer.PRESENT, id_token(reg.name)]
+
+
 class TestTokenStreamParser(unittest.TestCase):
 
     def test_nop_halt_ret(self):
@@ -102,3 +107,13 @@ class TestTokenStreamParser(unittest.TestCase):
             self.assertEqual(instructions[i].name, r['name'])
             self.assertEqual(instructions[i].dst, r['dst'])
 
+    def test_irmovl(self):
+        tokens = make_inst_ver_reg(opcode.irmovl, 12345, reg.eax)
+        instructions = TokenStreamParser(FakeStreamer(tokens)).parse()
+
+        self.assertEqual(len(instructions), 1)
+        inst = instructions[0]
+        self.assertEqual(inst.name, 'irmovl')
+        self.assertEqual(inst.ra, reg.no_reg.name)
+        self.assertEqual(inst.rb, reg.eax.name)
+        self.assertEqual(inst.var, '12345')

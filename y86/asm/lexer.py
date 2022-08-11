@@ -8,15 +8,17 @@ class TokenType(Enum):
 
     Invalid = 0  # invalid token, not allow in code
     ID = 1
-    Int = 2
-    Hex = 3
-    Otc = 4
-    Bin = 5
+    Number = 10
+    Int = 11
+    Hex = 12
+    Otc = 13
+    Bin = 14
     Comma = 6
     Lparen = 7
     Rparen = 8
     Present = 9
-    EOF = 10
+    Dollar = 10
+    EOF = 11
 
 
 class Token:
@@ -39,6 +41,7 @@ COMMA = Token(TokenType.Comma, ',')
 LPAREN = Token(TokenType.Lparen, '(')
 RPAREN = Token(TokenType.Rparen, ')')
 PRESENT = Token(TokenType.Present, '%')
+DOLLAR = Token(TokenType.Dollar, '$')
 
 
 ###########################################################
@@ -133,6 +136,9 @@ class Lexer(TokenStreamer):
         if c == '%':
             self._s.consume()
             return PRESENT
+        if c == '$':
+            self._s.consume()
+            return DOLLAR
         if c in string.digits:
             return self._match_number()
         if c in string.ascii_letters:
