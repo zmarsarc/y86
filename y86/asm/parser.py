@@ -9,6 +9,9 @@ class Instruction:
     
     def __init__(self, name: str) -> None:
         self.name = name
+        self._ra = None
+        self._rb = None
+        self._dst = ''
 
     @property
     def name(self) -> str:
@@ -33,6 +36,14 @@ class Instruction:
     @rb.setter
     def rb(self, name: str):
         self._rb = reg.name_to_reg[name]
+
+    @property
+    def dst(self) -> str:
+        return self._dst
+
+    @dst.setter
+    def dst(self, d: str):
+        self._dst = d
 
 
 class TokenStreamParser:
@@ -69,6 +80,15 @@ class TokenStreamParser:
                 raise MismatchError(TokenType.Comma, self._lexer.lookahead())
             self._lexer.consume()
             inst.rb = self._match_reg_name().value
+            return inst
+
+        # jmp/jl/je/jg/jle/jge/jne/call need a label as destination
+        jmp_inst = (opcode.jmp.name, opcode.jl.name, opcode.je.name, opcode.jg.name,
+                    opcode.jle.name, opcode.jge.name, opcode.jne.name, opcode.call.name)
+        if inst.name in jmp_inst:
+            if self._lexer.lookahead().token_type != TokenType.ID:
+                raise MismatchError(TokenType.ID, self._lexer.lookahead())
+            inst.dst = self._lexer.consume().value
             return inst
 
     def _match_inst_name(self) -> Token:
