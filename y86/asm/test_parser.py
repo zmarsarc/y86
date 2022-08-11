@@ -54,9 +54,9 @@ class TestTokenStreamParser(unittest.TestCase):
         p = TokenStreamParser(FakeStreamer(tokens))
         insts = p.parse()
         self.assertEqual(len(insts), 3)
-        self.assertEqual(insts[0].name, opcode.nop.name)
-        self.assertEqual(insts[1].name, opcode.halt.name)
-        self.assertEqual(insts[2].name, opcode.ret.name)
+        self.assertEqual(insts[0].operator, opcode.nop)
+        self.assertEqual(insts[1].operator, opcode.halt)
+        self.assertEqual(insts[2].operator, opcode.ret)
 
     def test_push_pop(self):
         tokens = make_inst_ra(opcode.pushl, reg.eax) + make_inst_ra(opcode.popl, reg.ecx)
@@ -70,8 +70,8 @@ class TestTokenStreamParser(unittest.TestCase):
         self.assertEqual(len(insts), 2)
 
         for i, r in enumerate(result):
-            self.assertEqual(insts[i].name, r['name'])
-            self.assertEqual(insts[i].ra, r['ra'])
+            self.assertEqual(insts[i].operator.name, r['name'])
+            self.assertEqual(insts[i].src_register.name, r['ra'])
 
     def test_add_sub_and_xor_rrmovl(self):
         tokens = make_inst_ra_rb(opcode.addl, reg.eax, reg.ecx) +\
@@ -93,9 +93,9 @@ class TestTokenStreamParser(unittest.TestCase):
         self.assertEqual(len(instructions), len(result))
 
         for i, r in enumerate(result):
-            self.assertEqual(instructions[i].name, r['name'])
-            self.assertEqual(instructions[i].ra, r['ra'])
-            self.assertEqual(instructions[i].rb, r['rb'])
+            self.assertEqual(instructions[i].operator.name, r['name'])
+            self.assertEqual(instructions[i].src_register.name, r['ra'])
+            self.assertEqual(instructions[i].dst_register.name, r['rb'])
 
     def test_jmp_call(self):
         ops = (opcode.jmp, opcode.je, opcode.jg, opcode.jl, opcode.jge, opcode.jle, opcode.jne, opcode.call)
@@ -108,8 +108,8 @@ class TestTokenStreamParser(unittest.TestCase):
         self.assertEqual(len(instructions), len(ops))
 
         for i, r in enumerate(result):
-            self.assertEqual(instructions[i].name, r['name'])
-            self.assertEqual(instructions[i].dst, r['dst'])
+            self.assertEqual(instructions[i].operator.name, r['name'])
+            self.assertEqual(instructions[i].var.value, r['dst'])
 
     def test_irmovl(self):
         tokens = make_inst_ver_reg(opcode.irmovl, 12345, reg.eax)
@@ -117,10 +117,10 @@ class TestTokenStreamParser(unittest.TestCase):
 
         self.assertEqual(len(instructions), 1)
         inst = instructions[0]
-        self.assertEqual(inst.name, 'irmovl')
-        self.assertEqual(inst.ra, reg.no_reg.name)
-        self.assertEqual(inst.rb, reg.eax.name)
-        self.assertEqual(inst.var, '12345')
+        self.assertEqual(inst.operator.name, 'irmovl')
+        self.assertEqual(inst.src_register, reg.no_reg)
+        self.assertEqual(inst.dst_register, reg.eax)
+        self.assertEqual(inst.var.value, '12345')
 
     def test_rmmovl(self):
         tokens = [id_token(opcode.rmmovl.name), lexer.PRESENT, id_token(reg.eax.name), lexer.COMMA] +\
@@ -130,10 +130,10 @@ class TestTokenStreamParser(unittest.TestCase):
         self.assertEqual(len(instructions), 1)
         inst = instructions[0]
 
-        self.assertEqual(inst.name, 'rmmovl')
-        self.assertEqual(inst.ra, reg.eax.name)
-        self.assertEqual(inst.rb, reg.ecx.name)
-        self.assertEqual(inst.var, '0x123')
+        self.assertEqual(inst.operator.name, 'rmmovl')
+        self.assertEqual(inst.src_register, reg.eax)
+        self.assertEqual(inst.dst_register, reg.ecx)
+        self.assertEqual(inst.var.value, '0x123')
 
     def test_mrmovl(self):
         tokens = [id_token(opcode.mrmovl.name)] + make_d_reg('0x123', reg.ecx) +\
@@ -144,7 +144,7 @@ class TestTokenStreamParser(unittest.TestCase):
         self.assertEqual(len(instructions), 1)
         inst = instructions[0]
 
-        self.assertEqual(inst.name, 'mrmovl')
-        self.assertEqual(inst.ra, reg.eax.name)
-        self.assertEqual(inst.rb, reg.ecx.name)
-        self.assertEqual(inst.var, '0x123')
+        self.assertEqual(inst.operator.name, 'mrmovl')
+        self.assertEqual(inst.src_register, reg.eax)
+        self.assertEqual(inst.dst_register, reg.ecx)
+        self.assertEqual(inst.var.value, '0x123')

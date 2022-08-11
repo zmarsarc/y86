@@ -7,52 +7,29 @@ from ..machine import opcode, reg
 
 class Instruction:
     
-    def __init__(self, name: str) -> None:
-        self.name = name
-        self._ra = None
-        self._rb = None
-        self._dst = ''
-        self._var = ''
+    def __init__(self, op: opcode.Instruction,
+                 src_reg: reg.Register = None, dst_reg: reg.Register = None,
+                 var: Token = None) -> None:
+        self._op = op
+        self._src_register = src_reg
+        self._dst_register = dst_reg
+        self._appendix_var = var
 
     @property
-    def name(self) -> str:
-        return self._opcode.name
-
-    @name.setter
-    def name(self, name: str):
-        self._opcode = opcode.name_to_inst[name]
+    def operator(self) -> opcode.Instruction:
+        return self._op
 
     @property
-    def ra(self) -> str:
-        return self._ra.name
-
-    @ra.setter
-    def ra(self, name: str):
-        self._ra = reg.name_to_reg[name]
+    def src_register(self) -> reg.Register:
+        return self._src_register
 
     @property
-    def rb(self) -> str:
-        return self._rb.name
-
-    @rb.setter
-    def rb(self, name: str):
-        self._rb = reg.name_to_reg[name]
+    def dst_register(self) -> reg.Register:
+        return self._dst_register
 
     @property
-    def dst(self) -> str:
-        return self._dst
-
-    @dst.setter
-    def dst(self, d: str):
-        self._dst = d
-
-    @property
-    def var(self) -> str:
-        return self._var
-
-    @var.setter
-    def var(self, v: str):
-        self._var = v
+    def var(self) -> Token:
+        return self._appendix_var
 
 
 class TokenStreamParser:
@@ -61,82 +38,50 @@ class TokenStreamParser:
         self._lexer = lexer
 
     def parse(self) -> list[Instruction]:
-        return self._instructions()
-
-    def _instructions(self) -> list[Instruction]:
         insts = []
         while self._lexer.lookahead() != EOF:
             insts.append(self._instruction())
         return insts
 
     def _instruction(self) -> Instruction:
-        inst = Instruction(name=self._match_inst_name().value)
+        op = self._match_operator()
 
         # nop/halt/ret do not need argument
-        if inst.name in (opcode.nop.name, opcode.halt.name, opcode.ret.name):
-            return inst
+        if op in (opcode.nop, opcode.halt, opcode.ret):
+            return Instruction(op)
 
         # pushl/popl need a register
-        if inst.name in (opcode.pushl.name, opcode.popl.name):
-            inst.ra = self._match_reg_name().value
-            inst.rb = reg.no_reg.name
-            return inst
+        if op in (opcode.pushl, opcode.popl):
+            return Instruction(op, src_reg=self._match_register(), dst_reg=reg.no_reg)
 
         # addl/subl/andl/xorl/rrmovl need two registers
-        if inst.name in (opcode.andl.name, opcode.subl.name, opcode.addl.name,
-                         opcode.xorl.name, opcode.rrmovl.name):
-            inst.ra = self._match_reg_name().value
-            if self._lexer.lookahead().token_type != TokenType.Comma:
-                raise MismatchError(TokenType.Comma, self._lexer.lookahead())
-            self._lexer.consume()
-            inst.rb = self._match_reg_name().value
-            return inst
+        if op in (opcode.andl, opcode.subl, opcode.addl, opcode.xorl, opcode.rrmovl):
+            src, dst = self._match_src_and_dst_register()
+            return Instruction(op, src_reg=src, dst_reg=dst)
 
         # jmp/jl/je/jg/jle/jge/jne/call need a label as destination
-        jmp_inst = (opcode.jmp.name, opcode.jl.name, opcode.je.name, opcode.jg.name,
-                    opcode.jle.name, opcode.jge.name, opcode.jne.name, opcode.call.name)
-        if inst.name in jmp_inst:
-            if self._lexer.lookahead().token_type != TokenType.ID:
-                raise MismatchError(TokenType.ID, self._lexer.lookahead())
-            inst.dst = self._lexer.consume().value
-            return inst
+        if op in (opcode.jmp, opcode.jl, opcode.je, opcode.jg,
+                  opcode.jle, opcode.jge, opcode.jne, opcode.call):
+            label = self._match(TokenType.ID)
+            return Instruction(op, var=label)
 
-        if inst.name == opcode.irmovl.name:
-            if self._lexer.lookahead().token_type != TokenType.Dollar:
-                raise MismatchError(TokenType.Dollar, self._lexer.lookahead())
-            self._lexer.consume()
-
-            tk = self._lexer.lookahead()
-            if tk.token_type not in (TokenType.Int, TokenType.Bin, TokenType.Hex, TokenType.Otc):
-                raise MismatchError(TokenType.Number, tk)
-            inst.var = self._lexer.consume().value
-
-            if self._lexer.lookahead().token_type != TokenType.Comma:
-                raise MismatchError(TokenType.Comma, self._lexer.lookahead())
-            self._lexer.consume()
-
-            inst.ra = reg.no_reg.name
-            inst.rb = self._match_reg_name().value
-
-            return inst
-
-        if inst.name == opcode.rmmovl.name:
-            inst.ra = self._match_reg_name().value
+        if op == opcode.irmovl:
+            immediate = self._match_immediate()
             self._match(TokenType.Comma)
-            inst.var = self._match_number().value
-            self._match(TokenType.Lparen)
-            inst.rb = self._match_reg_name().value
-            self._match(TokenType.Rparen)
-            return inst
+            dst = self._match_register()
+            return Instruction(op, src_reg=reg.no_reg, dst_reg=dst, var=immediate)
 
-        if inst.name == opcode.mrmovl.name:
-            inst.var = self._match_number().value
-            self._match(TokenType.Lparen)
-            inst.rb = self._match_reg_name().value
-            self._match(TokenType.Rparen)
+        if op == opcode.rmmovl:
+            src = self._match_register()
             self._match(TokenType.Comma)
-            inst.ra = self._match_reg_name().value
-            return inst
+            base, offset = self._match_offset_address()
+            return Instruction(op, src_reg=src, dst_reg=base, var=offset)
+
+        if op == opcode.mrmovl:
+            base, offset = self._match_offset_address()
+            self._match(TokenType.Comma)
+            src = self._match_register()
+            return Instruction(op, src_reg=src, dst_reg=base, var=offset)
 
     def _match(self, typ: TokenType) -> Token:
         if self._lexer.lookahead().token_type != typ:
@@ -148,31 +93,36 @@ class TokenStreamParser:
             raise MismatchError(TokenType.Number, self._lexer.lookahead())
         return self._lexer.consume()
 
-    def _match_inst_name(self) -> Token:
-        tk = self._lexer.lookahead()
-        if tk.token_type != TokenType.ID:
-            raise MismatchError(TokenType.ID, tk)
+    def _match_operator(self) -> opcode.Instruction:
+        op_id = self._match(TokenType.ID)
+        op = opcode.name_to_inst.get(op_id.value)
+        if op is None:
+            raise UnsupportInstructionError(op_id.value)
+        return op
 
-        # find instruction
-        if tk.value not in opcode.name_to_inst.keys():
-            raise UnsupportInstructionError(tk.value)
+    def _match_register(self) -> reg.Register:
+        self._match(TokenType.Present)
 
-        return self._lexer.consume()
+        reg_name = self._match(TokenType.ID)
+        r = reg.name_to_reg.get(reg_name.value)
+        if r is None:
+            raise UnsupportRegisterError(reg_name.value)
+        return r
 
-    def _match_reg_name(self) -> Token:
-        tk = self._lexer.lookahead()
+    def _match_src_and_dst_register(self) -> tuple[reg.Register, reg.Register]:
+        src = self._match_register()
+        self._match(TokenType.Comma)
+        dst = self._match_register()
+        return src, dst
 
-        if tk.token_type != TokenType.Present:
-            raise MismatchError(TokenType.Present, tk)
+    def _match_offset_address(self) -> tuple[reg.Register, Token]:
+        offset = self._match_number()
+        self._match(TokenType.Lparen)
+        base_reg = self._match_register()
+        self._match(TokenType.Rparen)
 
-        self._lexer.consume()
-        tk = self._lexer.lookahead()
+        return base_reg, offset
 
-        if tk.token_type != TokenType.ID:
-            raise MismatchError(TokenType.ID, tk)
-
-        # find reg
-        if tk.value not in reg.name_to_reg.keys():
-            raise UnsupportRegisterError(tk.value)
-
-        return self._lexer.consume()
+    def _match_immediate(self) -> Token:
+        self._match(TokenType.Dollar)
+        return self._match_number()
