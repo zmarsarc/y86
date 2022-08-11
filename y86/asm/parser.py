@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from .lexer import Lexer, EOF, TokenType, Token
+from .lexer import TokenStreamer, EOF, TokenType, Token
 from .errors import MismatchError, UnsupportInstructionError, UnsupportRegisterError
 from ..machine import opcode, reg
 
@@ -37,7 +37,7 @@ class Instruction:
 
 class TokenStreamParser:
     
-    def __init__(self, lexer: Lexer) -> None:
+    def __init__(self, lexer: TokenStreamer) -> None:
         self._lexer = lexer
 
     def parse(self) -> list[Instruction]:

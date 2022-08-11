@@ -1,23 +1,25 @@
-from enum import Enum, auto
+from enum import Enum
 import string
+from abc import ABCMeta, abstractmethod
 
 
 class TokenType(Enum):
-    Invalid = auto()
-    ID = auto()
-    Int = auto()
-    Hex = auto()
-    Otc = auto()
-    Bin = auto()
-    Comma = auto()
-    Lparen = auto()
-    Rparen = auto()
-    Present = auto()
-    EOF = auto()
+    """TokenType define all allowed token types"""
+
+    Invalid = 0  # invalid token, not allow in code
+    ID = 1
+    Int = 2
+    Hex = 3
+    Otc = 4
+    Bin = 5
+    Comma = 6
+    Lparen = 7
+    Rparen = 8
+    Present = 9
+    EOF = 10
 
 
 class Token:
-    
     def __init__(self, typ: TokenType, value: str) -> None:
         self._type = typ
         self._val = value
@@ -39,7 +41,19 @@ RPAREN = Token(TokenType.Rparen, ')')
 PRESENT = Token(TokenType.Present, '%')
 
 
-class StringStream:
+###########################################################
+class CharacterStreamer(metaclass=ABCMeta):
+
+    @abstractmethod
+    def lookahead(self, n: int) -> str:
+        pass
+
+    @abstractmethod
+    def consume(self) -> str:
+        pass
+
+
+class StringStream(CharacterStreamer):
 
     def __init__(self, src: str) -> None:
         self._src = src
@@ -52,7 +66,7 @@ class StringStream:
 
         if self._is_eos:
             return EOS
-        
+
         p = self._p + n
         if p < len(self._src):
             return self._src[p]
@@ -67,10 +81,22 @@ class StringStream:
         return EOS
 
 
-class Lexer:
-    
-    def __init__(self, stream: StringStream) -> None:
-        self._s: StringStream = stream
+###########################################################
+class TokenStreamer(metaclass=ABCMeta):
+
+    @abstractmethod
+    def lookahead(self) -> Token:
+        pass
+
+    @abstractmethod
+    def consume(self) -> Token:
+        pass
+
+
+class Lexer(TokenStreamer):
+
+    def __init__(self, stream: CharacterStreamer) -> None:
+        self._s: CharacterStreamer = stream
         self._la: Token = None
 
     def lookahead(self) -> Token:
@@ -116,7 +142,7 @@ class Lexer:
 
     def _match_number(self) -> Token:
         s = ''
-        
+
         if self._s.lookahead() == '0':
             s += self._s.consume()
 
@@ -131,7 +157,7 @@ class Lexer:
             if self._s.lookahead() in 'oO' and self._s.lookahead(2) in '01234567':
                 s += self._s.consume() + self._read_until_not_in_set('01234567')
                 return Token(TokenType.Otc, s)
-                
+
         else:
             return Token(TokenType.Int, self._read_until_not_in_set(string.digits))
 
