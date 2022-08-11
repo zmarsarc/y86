@@ -120,6 +120,34 @@ class TokenStreamParser:
 
             return inst
 
+        if inst.name == opcode.rmmovl.name:
+            inst.ra = self._match_reg_name().value
+            self._match(TokenType.Comma)
+            inst.var = self._match_number().value
+            self._match(TokenType.Lparen)
+            inst.rb = self._match_reg_name().value
+            self._match(TokenType.Rparen)
+            return inst
+
+        if inst.name == opcode.mrmovl.name:
+            inst.var = self._match_number().value
+            self._match(TokenType.Lparen)
+            inst.rb = self._match_reg_name().value
+            self._match(TokenType.Rparen)
+            self._match(TokenType.Comma)
+            inst.ra = self._match_reg_name().value
+            return inst
+
+    def _match(self, typ: TokenType) -> Token:
+        if self._lexer.lookahead().token_type != typ:
+            raise MismatchError(typ, self._lexer.lookahead())
+        return self._lexer.consume()
+
+    def _match_number(self):
+        if self._lexer.lookahead().token_type not in (TokenType.Int, TokenType.Hex, TokenType.Bin, TokenType.Otc):
+            raise MismatchError(TokenType.Number, self._lexer.lookahead())
+        return self._lexer.consume()
+
     def _match_inst_name(self) -> Token:
         tk = self._lexer.lookahead()
         if tk.token_type != TokenType.ID:

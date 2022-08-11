@@ -43,6 +43,10 @@ def make_inst_ver_reg(inst: opcode.Instruction, ver: int, reg: reg.Register) -> 
             lexer.COMMA, lexer.PRESENT, id_token(reg.name)]
 
 
+def make_d_reg(hex_var: str, r: reg.Register) -> list[lexer.Token]:
+    return [lexer.Token(lexer.TokenType.Hex, hex_var), lexer.LPAREN, lexer.PRESENT, id_token(r.name), lexer.RPAREN]
+
+
 class TestTokenStreamParser(unittest.TestCase):
 
     def test_nop_halt_ret(self):
@@ -117,3 +121,30 @@ class TestTokenStreamParser(unittest.TestCase):
         self.assertEqual(inst.ra, reg.no_reg.name)
         self.assertEqual(inst.rb, reg.eax.name)
         self.assertEqual(inst.var, '12345')
+
+    def test_rmmovl(self):
+        tokens = [id_token(opcode.rmmovl.name), lexer.PRESENT, id_token(reg.eax.name), lexer.COMMA] +\
+                make_d_reg('0x123', reg.ecx)
+        instructions = TokenStreamParser(FakeStreamer(tokens)).parse()
+
+        self.assertEqual(len(instructions), 1)
+        inst = instructions[0]
+
+        self.assertEqual(inst.name, 'rmmovl')
+        self.assertEqual(inst.ra, reg.eax.name)
+        self.assertEqual(inst.rb, reg.ecx.name)
+        self.assertEqual(inst.var, '0x123')
+
+    def test_mrmovl(self):
+        tokens = [id_token(opcode.mrmovl.name)] + make_d_reg('0x123', reg.ecx) +\
+            [lexer.COMMA, lexer.PRESENT, id_token(reg.eax.name)]
+
+        instructions = TokenStreamParser(FakeStreamer(tokens)).parse()
+
+        self.assertEqual(len(instructions), 1)
+        inst = instructions[0]
+
+        self.assertEqual(inst.name, 'mrmovl')
+        self.assertEqual(inst.ra, reg.eax.name)
+        self.assertEqual(inst.rb, reg.ecx.name)
+        self.assertEqual(inst.var, '0x123')
