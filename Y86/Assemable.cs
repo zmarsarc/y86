@@ -2,7 +2,7 @@ using Y86.Machine;
 
 namespace Y86.Assemable;
 
-enum TokenType {
+public enum TokenType {
     EOF,
     ID,
     Dot,
@@ -15,14 +15,14 @@ enum TokenType {
     Dollar
 }
 
-enum NumberType {
+public enum NumberType {
     Binary,
     Octal,
     Decimal,
     Hexadecimal
 }
 
-class Token {
+public class Token {
 
     public static readonly Token EOF = new("EOF", TokenType.EOF);
     public static readonly Token Dot = new(".", TokenType.Dot);
@@ -45,7 +45,7 @@ class Token {
     }
 }
 
-enum ASTType {
+public enum ASTType {
     Fragment,
     Instruction,
     Register,
@@ -53,7 +53,7 @@ enum ASTType {
     Label
 }
 
-class AST {
+public class AST {
     public ASTType Type {get; init;}
     public object? Value {get; init;}
 
@@ -65,13 +65,13 @@ class AST {
     }
 }
 
-interface ITokenStream {
-    Token Lookahead(uint n = 1);
+public interface ITokenStream {
+    Token Lookahead(int n = 1);
 
-    void Consume(uint n = 1);
+    void Consume(int n = 1);
 }
 
-class Parser {
+public class Parser {
 
     private ITokenStream Stream;
 
@@ -88,6 +88,7 @@ class Parser {
                 } else {
                     root.Children.Add(MatchFullInstruction());
                 }
+                continue;
             }
             
             // TODO: use custom exception
@@ -213,19 +214,7 @@ class Parser {
 
     private AST MatchNumber() {
         Token tk = MatchTokenByType(TokenType.Number);
-        int num = 0;
-
-        // TODO: parse number
-        switch ((NumberType)tk.SubType) {
-            case NumberType.Binary:
-                break;
-            case NumberType.Octal:
-                break;
-            case NumberType.Decimal:
-                break;
-            case NumberType.Hexadecimal:
-                break;
-        }
+        int num = int.Parse(tk.Value);
         return new(ASTType.Integer, num);
     }
 
