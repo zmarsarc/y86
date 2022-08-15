@@ -65,6 +65,26 @@ public class AST {
     }
 }
 
+public class ASTBuilder {
+
+    public static AST SingleOperatorInstruction(Operator op) {
+        return new(ASTType.Instruction, op);
+    }
+
+    public static AST OperatorWithRegisters(Operator op, Register src, Register dst) {
+        AST inst = new(ASTType.Instruction, op);
+        inst.Children.Add(new(ASTType.Register, src));
+        inst.Children.Add(new(ASTType.Register, dst));
+        return inst;
+    }
+
+    public static AST OperatorWithLabel(Operator op, string label) {
+        AST inst = new(ASTType.Instruction, op);
+        inst.Children.Add(new(ASTType.Label, label));
+        return inst;
+    }
+}
+
 public interface ITokenStream {
     Token Lookahead(int n = 1);
 
@@ -262,7 +282,7 @@ class Instruction {
     }
 }
 
-class CodeGenerator {
+public class CodeGenerator {
 
     public byte[] Generate(AST root) {
         Dictionary<string, int> symbolTable = new();
@@ -274,6 +294,7 @@ class CodeGenerator {
                 case ASTType.Instruction:
                     Instruction inst = MakeInstruction(ast, symbolTable);
                     address += inst.Operator.ByteSize;
+                    instructions.Add(inst);
                     break;
                 case ASTType.Label:
                     string label = (string)ast.Value!;

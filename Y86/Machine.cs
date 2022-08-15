@@ -33,13 +33,13 @@ public class Operator {
 
     public bool IsJumpOperator {
         get {
-            return (Code >> 4 & 0x7) == 0x7;
+            return (Code >> 4) == 0x7;
         }
     }
 
     public bool IsMathOperator {
         get {
-            return (Code >> 4 & 0x6) == 0x6;
+            return (Code >> 4) == 0x6;
         }
     }
 

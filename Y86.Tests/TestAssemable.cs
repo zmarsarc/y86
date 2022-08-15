@@ -236,3 +236,53 @@ public class TestParser
         AssertIsLabel(root.Children[0], "main");
     }
 }
+
+public class TestCodeGenerator {
+
+    AST NewFragment(AST child) {
+        AST root = new(ASTType.Fragment);
+        root.Children.Add(child);
+        return root;
+    }
+
+    [Fact]
+    public void TestNopHaltRet() {
+        Operator[] ops = {Operator.NOP, Operator.HALT, Operator.RET};
+        foreach (var op in ops) {
+            AST root = NewFragment(ASTBuilder.SingleOperatorInstruction(op));
+            byte[] code = new CodeGenerator().Generate(root);
+            Assert.Equal(new byte[]{op.Code}, code);
+        }
+    }
+
+    [Fact]
+    public void TestOperatorsThoseHaveRegistersArgument() {
+        Operator[] ops = {Operator.RRMOVL, Operator.ADDL, Operator.SUBL, Operator.ANDL, Operator.XORL};
+        foreach (var op in ops) {
+            AST root = NewFragment(ASTBuilder.OperatorWithRegisters(op, Register.EAX, Register.EBX));
+            byte[] code = new CodeGenerator().Generate(root);
+            Assert.Equal(new byte[]{op.Code, 0x03}, code);
+        }
+    }
+
+    [Fact]
+    public void TestPushPop() {
+        Operator[] ops = {Operator.PUSHL, Operator.POPL};
+        foreach (var op in ops) {
+            AST root = NewFragment(ASTBuilder.OperatorWithRegisters(op, Register.EAX, Register.NoneRegister));
+            byte[] code = new CodeGenerator().Generate(root);
+            Assert.Equal(new byte[]{op.Code, 0x08}, code);
+        }
+    }
+
+    [Fact]
+    public void TestJmpCall() {
+        Operator[] ops = {Operator.CALL, Operator.JMP, Operator.JE, Operator.JG,
+            Operator.JGE, Operator.JL, Operator.JLE, Operator.JNE};
+        foreach (var op in ops) {
+            AST root = NewFragment(new(ASTType.Label, "main"));
+            root.Children.Add(ASTBuilder.OperatorWithLabel(op, "main"));
+            Assert.Equal(new byte[]{op.Code, 0x00, 0x00, 0x00, 0x00}, new CodeGenerator().Generate(root));
+        }
+    }
+}
