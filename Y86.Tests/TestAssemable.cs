@@ -116,6 +116,10 @@ public class TestParser
         Assert.Equal((Register)regB.Value!, rb);
     }
 
+    void AssertIsFragment(AST frag) {
+        Assert.Equal(ASTType.Fragment, frag.Type);
+    }
+
     void AssertIsNumber(AST inst, int num) {
         Assert.Equal(ASTType.Integer, inst.Type);
         Assert.Equal((int)inst.Value!, num);
@@ -220,5 +224,15 @@ public class TestParser
             AssertFragmentHaveOneInstruction(root, op);
             AssertInstructionHaveRegisters(root.Children[0], Register.EAX, Register.NoneRegister);
         }
+    }
+
+    [Fact]
+    public void TestLabel() {
+        ITokenStream s = TestTokensMaker.Make().ID("main").Add(Token.Colon).TokenStream();
+        AST root = new Parser(s).Parse();
+
+        AssertIsFragment(root);
+        Assert.Single(root.Children);
+        AssertIsLabel(root.Children[0], "main");
     }
 }
