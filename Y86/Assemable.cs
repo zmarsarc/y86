@@ -219,3 +219,116 @@ public class Parser {
     }
 
 }
+
+interface IValue {
+    int Value {get;}
+}
+
+class ImmediateValue: IValue {
+    private int value;
+
+    public ImmediateValue(int val) {
+        value = val;
+    }
+
+    public int Value { get => value;}
+}
+
+class AddressValue: IValue {
+
+    private string labelName;
+    private Dictionary<string, int> symbolTable;
+
+    public AddressValue(string label, Dictionary<string, int> symbols) {
+        labelName = label;
+        symbolTable = symbols;
+    }
+
+    public int Value {get => symbolTable.GetValueOrDefault(labelName);}
+}
+
+class Instruction {
+
+    public Operator Operator {get;}
+    public Register? Source {get;}
+    public Register? Destnation {get;}
+    public IValue? Variable {get;}
+
+    public Instruction(Operator op, Register? ra = null, Register? rb = null, IValue? var = null) {
+        Operator = op;
+        Source = ra;
+        Destnation = rb;
+        Variable = var;
+    }
+}
+
+class CodeGenerator {
+
+    public byte[] Generate(AST root) {
+        Dictionary<string, int> symbolTable = new();
+        List<Instruction> instructions = new();
+        int address = 0;
+
+        foreach (var ast in root.Children) {
+            switch (ast.Type) {
+                case ASTType.Instruction:
+                    Instruction inst = MakeInstruction(ast, symbolTable);
+                    address += inst.Operator.ByteSize;
+                    break;
+                case ASTType.Label:
+                    string label = (string)ast.Value!;
+                    symbolTable[label] = address;
+                    break;
+                default:
+                    throw new ApplicationException();
+            }
+        }
+
+        List<byte> code = new();
+        foreach (var inst in instructions) {
+            code.AddRange(Encode(inst));
+        }
+
+        return code.ToArray();
+    }
+
+    private List<byte> Encode(Instruction inst) {
+        List<byte> code = new();
+        code.Add(inst.Operator.Code);
+        if (inst.Source != null && inst.Destnation != null) {
+            int reg = (inst.Source.Code << 4) | inst.Destnation.Code;
+            code.Add((byte)reg);
+        }
+        if (inst.Variable != null) {
+            byte[] bytes = BitConverter.GetBytes(inst.Variable.Value);
+            if (!BitConverter.IsLittleEndian) {
+                Array.Reverse(bytes);
+            }
+            code.AddRange(bytes);
+        }
+
+        return code;
+    }
+
+    private Instruction MakeInstruction(AST inst, Dictionary<string, int> symbols) {
+        Operator op = (Operator)inst.Value!;
+
+        if (op == Operator.NOP || op == Operator.HALT || op == Operator.RET) {
+            return new(op);
+        }
+        if (op.IsMathOperator || op == Operator.RRMOVL || op == Operator.PUSHL || op == Operator.POPL) {
+            return new(op, (Register)inst.Children[0].Value!, (Register)inst.Children[1].Value!);
+        }
+        if (op == Operator.IRMOVL || op == Operator.MRMOVL || op == Operator.RMMOVL) {
+            return new(op,
+                (Register)inst.Children[0].Value!,
+                (Register)inst.Children[1].Value!,
+                new ImmediateValue((int)inst.Children[2].Value!));
+        }
+        if (op.IsJumpOperator || op == Operator.CALL) {
+            return new Instruction(op, var: new AddressValue((string)inst.Children[0].Value!, symbols));
+        }
+
+        throw new ApplicationException();
+    }
+}
