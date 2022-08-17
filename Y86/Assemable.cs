@@ -1,355 +1,163 @@
+// 上游 -> abstract instructions list (AIL)
+// AIL 类型：指令 伪指令
+// label边解析边定义，直接放进符号表
+//
+// parser解析完后产生符号表和AIL
+// 使用符号表和AIL可以直接生成机器码
+//
+// 字节流 ----> token流 ----> 逻辑单元 ----> 抽象指令 ----> 机器码
+//
+// 直接生成指令:
+// [前序处理] ----> 逻辑单元 ----> 抽象指令 ----> 机器码
+//
+// parser接受一个token流的输入，输出符号表和AIL
+// token流是源程序中的逻辑碎片，每一个token都是一个独立的逻辑单元:
+// label定义，label引用，指令名，寄存器，立即数，基址偏移寻址，伪指令
+//
+
 using Y86.Machine;
 
-namespace Y86.Assemable;
+namespace Y86.Assemable {
 
-public enum TokenType {
-    EOF,
-    ID,
-    Dot,
-    Present,
-    Comma,
-    Number,
-    LeftParenthesis,
-    RightParenthesis,
-    Colon,
-    Dollar
-}
+    namespace Errors {
 
-public enum NumberType {
-    Binary,
-    Octal,
-    Decimal,
-    Hexadecimal
-}
+        [Serializable]
+        public class MismatchException: Exception {
 
-public class Token {
+            public Token Token {get;}
+            public Token.Types Expect {get;}
 
-    public static readonly Token EOF = new("EOF", TokenType.EOF);
-    public static readonly Token Dot = new(".", TokenType.Dot);
-    public static readonly Token Present = new("%", TokenType.Present);
-    public static readonly Token Comma = new(",", TokenType.Comma);
-    public static readonly Token LeftParenthesis = new("(", TokenType.LeftParenthesis);
-    public static readonly Token RightParenthesis = new(")", TokenType.RightParenthesis);
-    public static readonly Token Colon = new(":", TokenType.Colon);
-    public static readonly Token Dollar = new("$", TokenType.Dollar);
-
-    public TokenType Type {get; init;}
-    public int SubType {get; init;}
-
-    public string Value {get; init;}
-
-    public Token(string value, TokenType type, int subType = 0) {
-        Value = value;
-        Type = type;
-        SubType = subType;
-    }
-}
-
-public enum ASTType {
-    Fragment,
-    Instruction,
-    Register,
-    Integer,
-    Label
-}
-
-public class AST {
-    public ASTType Type {get; init;}
-    public object? Value {get; init;}
-
-    public List<AST> Children = new List<AST>();
-
-    public AST(ASTType type, object? value = null) {
-        Type = type;
-        Value = value;
-    }
-}
-
-public class ASTBuilder {
-
-    public static AST SingleOperatorInstruction(Operator op) {
-        return new(ASTType.Instruction, op);
-    }
-
-    public static AST OperatorWithRegisters(Operator op, Register src, Register dst) {
-        AST inst = new(ASTType.Instruction, op);
-        inst.Children.Add(new(ASTType.Register, src));
-        inst.Children.Add(new(ASTType.Register, dst));
-        return inst;
-    }
-
-    public static AST OperatorWithLabel(Operator op, string label) {
-        AST inst = new(ASTType.Instruction, op);
-        inst.Children.Add(new(ASTType.Label, label));
-        return inst;
-    }
-}
-
-public interface ITokenStream {
-    Token Lookahead(int n = 1);
-
-    void Consume(int n = 1);
-}
-
-public class Parser {
-
-    private ITokenStream Stream;
-
-    public Parser(ITokenStream stream) {
-        Stream = stream;
-    }
-
-    public AST Parse() {
-        AST root = new(ASTType.Fragment);
-        while (Stream.Lookahead() != Token.EOF) {
-            if (Stream.Lookahead().Type == TokenType.ID) {
-                if (Stream.Lookahead(2) == Token.Colon) {
-                    root.Children.Add(MatchLabel());
-                } else {
-                    root.Children.Add(MatchFullInstruction());
-                }
-                continue;
+            public MismatchException(Token.Types expect, Token tk): base() {
+                Token = tk;
+                Expect = expect;
             }
-            
-            // TODO: use custom exception
-            throw new ApplicationException();
+
+            public override string ToString()
+            {
+                return $"expect a {Expect} token, but actuan is {Token.Type}";
+            }
         }
-        return root;
+
+        [Serializable]
+        public class LabelRedefinedException: Exception {
+            public string Label {get;}
+            public LabelRedefinedException(string label): base() => Label = label;
+            public override string ToString() {
+                return $"label \"{Label}\" is redefined";
+            }
+        }
     }
 
-    private AST MatchLabel() {
-        Token idToken = MatchTokenByType(TokenType.ID);
-        MatchTokenByType(TokenType.Colon);
-        return new(ASTType.Label, idToken.Value);
-    }
+    // Token 描述基本的符号信息
+    public class Token {
 
-    private Token MatchTokenByType(TokenType type) {
-        Token tk = Stream.Lookahead();
-        if (tk.Type != type) {
-            // TODO: use custom exception
-            throw new ApplicationException();
+        public enum Types {
+            EOS,        // end of stream 代表符号流结束
+            Whitespace, // 所有空白字元，用于分割两个token以避免二义性
+            ID,         // 标识符如main/addl/eax等
+            Int32,      // 32位整型数
+            Dot,        // 符号 "."
+            Comma,      // 符号 ","
+            Present,    // 符号 "%"
+            Dollar,     // 符号 "$"
+            Colon,      // 符号 ":"
+            Hashtag     // 符号 “#”
         }
-        Stream.Consume();
-        return tk;
-    }
-
-    private AST MatchFullInstruction() {
-        AST inst = MatchInstruction();
-
-        Operator op = (Operator)inst.Value!;
-
-        if (op == Operator.NOP || op == Operator.HALT || op == Operator.RET) {
-            return inst;
-        }
-
-        if (op == Operator.PUSHL || op == Operator.POPL) {
-            inst.Children.Add(MatchRegister());
-            inst.Children.Add(new(ASTType.Register, Register.NoneRegister));
-            return inst;
-        }
-
-        if (op.IsJumpOperator || op == Operator.CALL) {
-            AST label = new(ASTType.Label, MatchTokenByType(TokenType.ID).Value);
-            inst.Children.Add(label);
-            return inst;
-        }
-
-        if (op.IsMathOperator || op == Operator.RRMOVL) {
-            AST ra = MatchRegister();
-            MatchTokenByType(TokenType.Comma);
-            AST rb = MatchRegister();
-            inst.Children.Add(ra);
-            inst.Children.Add(rb);
-            return inst;
-        }
-
-        if (op == Operator.IRMOVL) {
-            MatchTokenByType(TokenType.Dollar);
-            AST num = MatchNumber();
-            MatchTokenByType(TokenType.Comma);
-            AST reg = MatchRegister();
-
-            inst.Children.Add(new(ASTType.Register, Register.NoneRegister));
-            inst.Children.Add(reg);
-            inst.Children.Add(num);
-            return inst;
-        }
-
-        if (op == Operator.RMMOVL) {
-            AST ra = MatchRegister();
-            MatchTokenByType(TokenType.Comma);
-            AST offset = MatchNumber();
-            MatchTokenByType(TokenType.LeftParenthesis);
-            AST rb = MatchRegister();
-            MatchTokenByType(TokenType.RightParenthesis);
-
-            inst.Children.Add(ra);
-            inst.Children.Add(rb);
-            inst.Children.Add(offset);
-            return inst;
-        }
-
-        if (op == Operator.MRMOVL) {
-            AST offset = MatchNumber();
-            MatchTokenByType(TokenType.LeftParenthesis);
-            AST rb = MatchRegister();
-            MatchTokenByType(TokenType.RightParenthesis);
-            MatchTokenByType(TokenType.Comma);
-            AST ra = MatchRegister();
-
-            inst.Children.Add(ra);
-            inst.Children.Add(rb);
-            inst.Children.Add(offset);
-            return inst;
-        }
-
-        // TODO: use custome exception
-        throw new ApplicationException();
-    }
-
-    private AST MatchRegister() {
-        MatchTokenByType(TokenType.Present);
-        Token tk = MatchTokenByType(TokenType.ID);
-
-        Register? reg = Register.FindByName(tk.Value);
-        if (reg == null) {
-            // TODO: use custom exception
-            throw new ApplicationException();
-        }
-
-        return new(ASTType.Register, reg);
-    }
-
-    private AST MatchInstruction() {
-        Token instToken = MatchTokenByType(TokenType.ID);
-        Operator? op = Operator.FindByName(instToken.Value);
         
-        if (op == null) {
-            // TODO: use custom exception
-            throw new ApplicationException();
+        public Types Type {get;}
+
+        protected Token(Types type) {
+            Type = type;
         }
 
-        return new(ASTType.Instruction, op);
+        public static Token EOS = new(Types.EOS);
+        public static Token Dot = new(Types.Dot);
+        public static Token Comma = new(Types.Comma);
+        public static Token Present = new(Types.Present);
+        public static Token Dollar = new(Types.Dollar);
+        public static Token Colon = new(Types.Colon);
+        public static Token Hashtag = new(Types.Hashtag);
+        public static Token Whitespace = new(Types.Whitespace);
     }
 
-    private AST MatchNumber() {
-        Token tk = MatchTokenByType(TokenType.Number);
-        int num = int.Parse(tk.Value);
-        return new(ASTType.Integer, num);
+    // ID 类型的Token，携带id信息
+    public class IDToken: Token {
+        public string ID {get;}
+        public IDToken(string id): base(Types.ID) => ID = id;
     }
 
-}
-
-interface IValue {
-    int Value {get;}
-}
-
-class ImmediateValue: IValue {
-    private int value;
-
-    public ImmediateValue(int val) {
-        value = val;
+    // Int32类型的Token，携带数值
+    public class Int32Token: Token {
+        public Int32 Value {get;}
+        public Int32Token(Int32 val): base(Types.Int32) => Value = val;
     }
 
-    public int Value { get => value;}
-}
-
-class AddressValue: IValue {
-
-    private string labelName;
-    private Dictionary<string, int> symbolTable;
-
-    public AddressValue(string label, Dictionary<string, int> symbols) {
-        labelName = label;
-        symbolTable = symbols;
+    public interface ITokenStream {
+        public Token Lookahead(int n = 1);
+        public void Consume(int n = 1);
     }
 
-    public int Value {get => symbolTable.GetValueOrDefault(labelName);}
-}
-
-class Instruction {
-
-    public Operator Operator {get;}
-    public Register? Source {get;}
-    public Register? Destnation {get;}
-    public IValue? Variable {get;}
-
-    public Instruction(Operator op, Register? ra = null, Register? rb = null, IValue? var = null) {
-        Operator = op;
-        Source = ra;
-        Destnation = rb;
-        Variable = var;
+    public class AbstractInstruction {
+        public UInt32 Address {get;}
+        public AbstractInstruction(UInt32 addr) => Address = addr;
     }
-}
 
-public class CodeGenerator {
+    public class AIL {
+        public List<AbstractInstruction> Instructions = new();
+        public Dictionary<string, UInt32> Symbols = new();
+    }
 
-    public byte[] Generate(AST root) {
-        Dictionary<string, int> symbolTable = new();
-        List<Instruction> instructions = new();
-        int address = 0;
+    public class Parser {
+        public static AIL Parse(ITokenStream s) {
+            AIL ail = new();    // 存放解析结果
+            UInt32 address = 0; // 记录指令地址
 
-        foreach (var ast in root.Children) {
-            switch (ast.Type) {
-                case ASTType.Instruction:
-                    Instruction inst = MakeInstruction(ast, symbolTable);
-                    address += inst.Operator.ByteSize;
-                    instructions.Add(inst);
-                    break;
-                case ASTType.Label:
-                    string label = (string)ast.Value!;
-                    symbolTable[label] = address;
-                    break;
-                default:
-                    throw new ApplicationException();
+            while (s.Lookahead() != Token.EOS) {
+                Token tk = s.Lookahead();
+                
+                // 允许出现在语句头的有label/伪指令/opcode
+                // 伪指令使用一个"."作为先导
+                if (tk == Token.Dot) {
+                    // 尝试去匹配一个伪指令
+                }
+                
+                // label/opcode都以一个id作为先导
+                if (tk.Type == Token.Types.ID) {
+                    
+                    // 向前再看一个符号，如果是":"则识别为label，否则尝试匹配一个opcode
+                    if (s.Lookahead(2) == Token.Colon) {
+                        string label = MatchLabel(s);
+                        if (ail.Symbols.ContainsKey(label)) {
+                            // label redefined,不允许同一个label被定义两次，报错
+                            throw new Errors.LabelRedefinedException(label);
+                        }
+                        ail.Symbols.Add(label, address);
+                    } else {
+                        
+                    }
+                    continue;
+                }
+
+                // 对于所有可以用于识别的先导token前的空白符号，都可以跳过
+                if (tk == Token.Whitespace) {
+                    s.Consume();
+                    continue;
+                }
+
+                // 其它符号出现在先导位置都是非法的源程序
+                throw new ApplicationException();
             }
+
+            return ail;
         }
 
-        List<byte> code = new();
-        foreach (var inst in instructions) {
-            code.AddRange(Encode(inst));
-        }
-
-        return code.ToArray();
-    }
-
-    private List<byte> Encode(Instruction inst) {
-        List<byte> code = new();
-        code.Add(inst.Operator.Code);
-        if (inst.Source != null && inst.Destnation != null) {
-            int reg = (inst.Source.Code << 4) | inst.Destnation.Code;
-            code.Add((byte)reg);
-        }
-        if (inst.Variable != null) {
-            byte[] bytes = BitConverter.GetBytes(inst.Variable.Value);
-            if (!BitConverter.IsLittleEndian) {
-                Array.Reverse(bytes);
+        static string MatchLabel(ITokenStream s) {
+            IDToken? tk = s.Lookahead() as IDToken;
+            if (tk != null) {
+                s.Consume(2); // 吃掉一个id和一个冒号
+                return tk.ID;
             }
-            code.AddRange(bytes);
-        }
-
-        return code;
-    }
-
-    private Instruction MakeInstruction(AST inst, Dictionary<string, int> symbols) {
-        Operator op = (Operator)inst.Value!;
-
-        if (op == Operator.NOP || op == Operator.HALT || op == Operator.RET) {
-            return new(op);
-        }
-        if (op.IsMathOperator || op == Operator.RRMOVL || op == Operator.PUSHL || op == Operator.POPL) {
-            return new(op, (Register)inst.Children[0].Value!, (Register)inst.Children[1].Value!);
-        }
-        if (op == Operator.IRMOVL || op == Operator.MRMOVL || op == Operator.RMMOVL) {
-            return new(op,
-                (Register)inst.Children[0].Value!,
-                (Register)inst.Children[1].Value!,
-                new ImmediateValue((int)inst.Children[2].Value!));
-        }
-        if (op.IsJumpOperator || op == Operator.CALL) {
-            return new Instruction(op, var: new AddressValue((string)inst.Children[0].Value!, symbols));
-        }
-
-        throw new ApplicationException();
+            throw new Errors.MismatchException(Token.Types.ID, s.Lookahead());
+        } 
     }
 }
