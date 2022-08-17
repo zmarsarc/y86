@@ -111,8 +111,51 @@ namespace Y86.Assemable
 
     public class AbstractInstruction
     {
-        public UInt32 Address { get; }
+        public UInt32 Address { get; set; }
+        public AbstractInstruction() { }
         public AbstractInstruction(UInt32 addr) => Address = addr;
+    }
+
+    // PesudoInstruction 伪指令类型
+    public class PseudoInstruction : AbstractInstruction
+    {
+
+        public enum Commands
+        {
+            SetPosition, // .POS 指定下一条指令的地址
+            Align,       // .align 指定下一条指令地址对齐到几byte
+            DefineLong,  // .long 定义long型数据
+            DefineWord,  // .word 定义word型数据
+            DefineByte,  // .byte 定义byte型数据
+        }
+
+        public Commands Command { get; }
+
+        public static readonly Dictionary<string, Commands> CommandNames; // 记录为指令名和对应的代码
+
+        static PseudoInstruction()
+        {
+            CommandNames = new();
+            CommandNames.Add("pos", Commands.SetPosition);
+            CommandNames.Add("align", Commands.Align);
+            CommandNames.Add("long", Commands.DefineLong);
+            CommandNames.Add("word", Commands.DefineWord);
+            CommandNames.Add("byte", Commands.DefineByte);
+        }
+
+        protected PseudoInstruction(Commands cmd) : base(0) => Command = cmd;
+        protected PseudoInstruction(UInt32 addr, Commands cmd) : base(addr) => Command = cmd;
+    }
+
+    // 伪指令实现的集合
+    namespace PesudoInstructions
+    {
+        // SetInstructionPosition 伪指令，重置下一条指令的地址
+        public class SetInstructionPosition : PseudoInstruction
+        {
+            public UInt32 Position { get; }
+            public SetInstructionPosition(UInt32 pos) : base(Commands.SetPosition) => Position = pos;
+        }
     }
 
     public class AIL
@@ -187,6 +230,18 @@ namespace Y86.Assemable
                 return tk.ID;
             }
             throw new Errors.MismatchException(Token.Types.ID, s.Lookahead());
+        }
+
+        static void MatchPseudoInstruction(ITokenStream s)
+        {
+            if (s.Lookahead() == Token.Dot && s.Lookahead(2).Type == Token.Types.ID)
+            {
+                IDToken? tk = s.Lookahead(2) as IDToken;
+                if (tk == null) throw new ApplicationException("some code bug exists, this token must be id");
+
+            }
+
+            throw new Errors.MismatchException(Token.Types.ID, s.Lookahead(2));
         }
     }
 }
