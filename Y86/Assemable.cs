@@ -112,12 +112,15 @@ namespace Y86.Assemable {
             AIL ail = new();    // 存放解析结果
             UInt32 address = 0; // 记录指令地址
 
+            // 当token流未结束时连续的解析token
+            // 允许出现在语句头的有whitespace/label/伪指令/opcode，这些token可以作为先导
+            // 其它类型的token不能作为先导，出现在语句头部时表示输入为非法源代码
             while (s.Lookahead() != Token.EOS) {
+
+                // 向前看一个token，如果是EOS则结束解析，否则使用这个token制导
                 Token tk = s.Lookahead();
                 
-                // 允许出现在语句头的有label/伪指令/opcode
-                // 伪指令使用一个"."作为先导
-                if (tk == Token.Dot) {
+                if (tk == Token.Dot) { // 伪指令形如.POS,以一个"."作为先导
                     // 尝试去匹配一个伪指令
                 }
                 
@@ -144,7 +147,6 @@ namespace Y86.Assemable {
                     continue;
                 }
 
-                // 其它符号出现在先导位置都是非法的源程序
                 throw new ApplicationException();
             }
 
