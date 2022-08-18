@@ -65,10 +65,10 @@ namespace Y86.Assemable
         }
 
         [Serializable]
-        public class UnsupportedRegisterException: Exception
+        public class UnsupportedRegisterException : Exception
         {
-            public string Name {get;}
-            public UnsupportedRegisterException(string name): base() => Name = name;
+            public string Name { get; }
+            public UnsupportedRegisterException(string name) : base() => Name = name;
             public override string ToString()
             {
                 return $"\"{Name}\" is not a valid register name";
@@ -210,6 +210,25 @@ namespace Y86.Assemable
                 return new byte[] { Operator.Code, (byte)regCode };
             }
         }
+
+        // SourceAndDestinationRegisters 拥有两个寄存器作为参数的命令
+        public class SourceAndDestinationRegisters : Instruction
+        {
+            public Register Source { get; }
+            public Register Destination { get; }
+
+            public SourceAndDestinationRegisters(Operator op, Register src, Register dst) : base(op)
+            {
+                Source = src;
+                Destination = dst;
+            }
+
+            public override byte[] Encode()
+            {
+                int regCode = (Source.Code << 4) | Destination.Code;
+                return new byte[] { Operator.Code, (byte)regCode };
+            }
+        }
     }
 
     public class AIL
@@ -259,6 +278,7 @@ namespace Y86.Assemable
                     if (s.Lookahead(2) == Token.Colon)
                     {
                         ail.AddSymbol(MatchLabel(s));
+                        s.Consume(2); // 吃掉id和一个冒号
                     }
                     else
                     {
@@ -311,10 +331,9 @@ namespace Y86.Assemable
         {
             ParseHelper helper = new(s); // 解析token流的辅助类
 
-            Operator op = helper.MatchOperator();
-    
+            // 解析指令
             // 根据指令判断类型，不同类型的指令拥有不同的参数，决定接下来的解析过程
-            //
+            Operator op = helper.MatchOperator();
 
             // nop/hale/ret指令不需要参数
             if (op == Operator.NOP || op == Operator.HALT || op == Operator.RET)
@@ -330,6 +349,14 @@ namespace Y86.Assemable
                 return new Instructions.PushOrPop(op, register);
             }
 
+            // rrmovl/addl/subl/andl/xorl需要两个寄存器，两个寄存器中间通过逗号隔开
+            if (op == Operator.RRMOVL || op.IsMathOperator)
+            {
+                Register a = helper.MatchRegister();
+                helper.Match(Token.Comma);
+                Register b = helper.MatchRegister();
+                return new Instructions.SourceAndDestinationRegisters(op, a, b);
+            }
 
             // TODO: implement me!
             throw new NotImplementedException();
