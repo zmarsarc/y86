@@ -52,6 +52,28 @@ namespace Y86.Assemable
                 return $"label \"{Label}\" is redefined";
             }
         }
+
+        [Serializable]
+        public class UnsupportedInstructionException : Exception
+        {
+            public string Name { get; }
+            public UnsupportedInstructionException(string name) : base() => Name = name;
+            public override string ToString()
+            {
+                return $"\"{Name}\" is not a instruction name";
+            }
+        }
+
+        [Serializable]
+        public class UnsupportedRegisterException: Exception
+        {
+            public string Name {get;}
+            public UnsupportedRegisterException(string name): base() => Name = name;
+            public override string ToString()
+            {
+                return $"\"{Name}\" is not a valid register name";
+            }
+        }
     }
 
     // Token 描述基本的符号信息
@@ -158,6 +180,38 @@ namespace Y86.Assemable
         }
     }
 
+    // Instruction 需要最终翻译为机器码的指令
+    public class Instruction : AbstractInstruction
+    {
+        public Operator Operator { get; }
+
+        public Instruction(Operator op) : base() => Operator = op;
+
+        // 编码指令，子类需重写此指令
+        public virtual byte[] Encode()
+        {
+            return new byte[] { Operator.Code };
+        }
+    }
+
+    // Instruction 子类
+    namespace Instructions
+    {
+        // push 或 pop 类指令，拥有一个寄存器参数
+        public class PushOrPop : Instruction
+        {
+            public Register Register { get; }
+
+            public PushOrPop(Operator op, Register reg) : base(op) => Register = reg;
+
+            public override byte[] Encode()
+            {
+                int regCode = (Register.Code << 4) | 0x8;
+                return new byte[] { Operator.Code, (byte)regCode };
+            }
+        }
+    }
+
     public class AIL
     {
         public List<AbstractInstruction> Instructions = new(); // 记录指令
@@ -237,6 +291,7 @@ namespace Y86.Assemable
             throw new Errors.MismatchException(Token.Types.ID, s.Lookahead());
         }
 
+        // 匹配一条伪指令
         static void MatchPseudoInstruction(ITokenStream s)
         {
             if (s.Lookahead() == Token.Dot && s.Lookahead(2).Type == Token.Types.ID)
@@ -244,9 +299,83 @@ namespace Y86.Assemable
                 IDToken? tk = s.Lookahead(2) as IDToken;
                 if (tk == null) throw new ApplicationException("some code bug exists, this token must be id");
 
+                // TODO: implement me!
+                throw new NotImplementedException();
             }
 
             throw new Errors.MismatchException(Token.Types.ID, s.Lookahead(2));
         }
+
+        // 匹配一条指令
+        static Instruction MatchInstruction(ITokenStream s)
+        {
+            string instName = MatchID(s).ID;
+            Operator? op = Operator.FindByName(instName);
+            if (op == null) throw new Errors.UnsupportedInstructionException(instName);
+
+            // 根据指令判断类型，不同类型的指令拥有不同的参数，决定接下来的解析过程
+            //
+
+            // nop/hale/ret指令不需要参数
+            if (op == Operator.NOP || op == Operator.HALT || op == Operator.RET)
+            {
+                return new(op);
+            }
+
+            // push/pop需要一个寄存器作为参数
+            if (op == Operator.PUSHL || op == Operator.POPL)
+            {
+                // 继续向前看，尝试命中一个register
+                Register register = MatchAsRegister(s);
+                return new Instructions.PushOrPop(op, register);
+            }
+
+
+            // TODO: implement me!
+            throw new NotImplementedException();
+        }
+
+        // 向前看一个token并尝试解析成一个id，如果成功则接受这个token，否则引发异常
+        static IDToken MatchID(ITokenStream s)
+        {
+            IDToken? tk = s.Lookahead() as IDToken;
+            if (tk == null)
+            {
+                throw new Errors.MismatchException(Token.Types.ID, s.Lookahead());
+            }
+            else
+            {
+                s.Consume();
+            }
+            return tk;
+        }
+
+        // 连续向前看两个token，这两个token必须符合"%"ID的序列，id的字面值需要能命中一个寄存器名称
+        // 如果成功，接受这两个token，否则引发Mismatch异常
+        static Register MatchAsRegister(ITokenStream s)
+        {
+            if (s.Lookahead() != Token.Present)
+            {
+                throw new Errors.MismatchException(Token.Types.Present, s.Lookahead());
+            }
+            else
+            {
+                s.Consume();
+            }
+
+            string registerName = MatchID(s).ID;
+            Register? register = Register.FindByName(registerName);
+            if (register == null)
+            {
+                throw new Errors.UnsupportedRegisterException(registerName);
+            }
+            else
+            {
+                s.Consume();
+            }
+
+            return register;
+        }
+
     }
 }
