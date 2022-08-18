@@ -160,8 +160,20 @@ namespace Y86.Assemable
 
     public class AIL
     {
-        public List<AbstractInstruction> Instructions = new();
-        public Dictionary<string, UInt32> Symbols = new();
+        public List<AbstractInstruction> Instructions = new(); // 记录指令
+        public Dictionary<string, UInt32> Symbols = new(); // 记录符号
+        private UInt32 address = 0; // 跟踪指令地址
+
+        // 记录symbol到符号表
+        // 注意，symbol不允许重复定义，已经定义过的symbol再次定义会引发异常
+        public void AddSymbol(string name)
+        {
+            if (Symbols.ContainsKey(name))
+            {
+                throw new Errors.LabelRedefinedException(name);
+            }
+            Symbols.Add(name, address);
+        }
     }
 
     public class Parser
@@ -169,7 +181,6 @@ namespace Y86.Assemable
         public static AIL Parse(ITokenStream s)
         {
             AIL ail = new();    // 存放解析结果
-            UInt32 address = 0; // 记录指令地址
 
             // 当token流未结束时连续的解析token
             // 允许出现在语句头的有whitespace/label/伪指令/opcode，这些token可以作为先导
@@ -191,15 +202,9 @@ namespace Y86.Assemable
                 if (tk.Type == Token.Types.ID)
                 {
                     // 向前再看一个符号，如果是":"则识别为label，否则尝试匹配一个opcode
-                    // 注意，不允许label的重复定义
                     if (s.Lookahead(2) == Token.Colon)
                     {
-                        string label = MatchLabel(s);
-                        if (ail.Symbols.ContainsKey(label))
-                        {
-                            throw new Errors.LabelRedefinedException(label);
-                        }
-                        ail.Symbols.Add(label, address);
+                        ail.AddSymbol(MatchLabel(s));
                     }
                     else
                     {
