@@ -74,6 +74,17 @@ namespace Y86.Assemable
                 return $"\"{Name}\" is not a valid register name";
             }
         }
+
+        [Serializable]
+        public class ReferenceOfLabelNotResolveException: Exception
+        {
+            public string Label {get;}
+            public ReferenceOfLabelNotResolveException(string label) : base() => Label = label;
+            public override string ToString()
+            {
+                return $"reference of label\"{Label}\" is not resolve, can not encode because address is unsolved.";
+            }
+        }
     }
 
     // Token 描述基本的符号信息
@@ -229,6 +240,39 @@ namespace Y86.Assemable
                 return new byte[] { Operator.Code, (byte)regCode };
             }
         }
+
+        public class DestinationLabel : Instruction
+        {
+            public string Label { get; }
+            private UInt32? address = null;
+
+            public DestinationLabel(Operator op, string label) : base(op) => Label = label;
+
+            // Resolve 设置label对应的地址（解引用）
+            public void Resolve(UInt32 addr)
+            {
+                address = addr;
+            }
+
+            public override byte[] Encode()
+            {
+                if (address == null)
+                {
+                    throw new Errors.ReferenceOfLabelNotResolveException(Label);
+                }
+                List<byte> result = new();
+                result.Add(Operator.Code);
+
+                byte[] addr = BitConverter.GetBytes((uint)address!);
+                if (!BitConverter.IsLittleEndian)
+                {
+                    addr.Reverse();
+                }
+                result.AddRange(addr);
+                
+                return result.ToArray();
+            }
+        }
     }
 
     public class AIL
@@ -356,6 +400,13 @@ namespace Y86.Assemable
                 helper.Match(Token.Comma);
                 Register b = helper.MatchRegister();
                 return new Instructions.SourceAndDestinationRegisters(op, a, b);
+            }
+
+            // 跳转指令和call指令需要一个label作为目标
+            if (op.IsJumpOperator || op == Operator.CALL)
+            {
+                string label = helper.MatchID().ID;
+                return new Instructions.DestinationLabel(op, label);
             }
 
             // TODO: implement me!
