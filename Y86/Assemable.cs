@@ -309,10 +309,10 @@ namespace Y86.Assemable
         // 匹配一条指令
         static Instruction MatchInstruction(ITokenStream s)
         {
-            string instName = MatchID(s).ID;
-            Operator? op = Operator.FindByName(instName);
-            if (op == null) throw new Errors.UnsupportedInstructionException(instName);
+            ParseHelper helper = new(s); // 解析token流的辅助类
 
+            Operator op = helper.MatchOperator();
+    
             // 根据指令判断类型，不同类型的指令拥有不同的参数，决定接下来的解析过程
             //
 
@@ -326,7 +326,7 @@ namespace Y86.Assemable
             if (op == Operator.PUSHL || op == Operator.POPL)
             {
                 // 继续向前看，尝试命中一个register
-                Register register = MatchAsRegister(s);
+                Register register = helper.MatchRegister();
                 return new Instructions.PushOrPop(op, register);
             }
 
@@ -334,48 +334,94 @@ namespace Y86.Assemable
             // TODO: implement me!
             throw new NotImplementedException();
         }
+    }
 
-        // 向前看一个token并尝试解析成一个id，如果成功则接受这个token，否则引发异常
-        static IDToken MatchID(ITokenStream s)
+    // 一些解析过程的辅助方法
+    public class ParseHelper
+    {
+        private ITokenStream stream;
+
+        public ParseHelper(ITokenStream s) => stream = s;
+
+        // Match 尝试匹配下一个token
+        // 向前看一个token，若此token于指定token相同，则接受并返回此token，否则引发异常
+        public Token Match(Token tk)
         {
-            IDToken? tk = s.Lookahead() as IDToken;
-            if (tk == null)
+            if (stream.Lookahead() != tk)
             {
-                throw new Errors.MismatchException(Token.Types.ID, s.Lookahead());
+                throw new Errors.MismatchException(tk.Type, stream.Lookahead());
             }
             else
             {
-                s.Consume();
+                stream.Consume();
             }
             return tk;
         }
 
-        // 连续向前看两个token，这两个token必须符合"%"ID的序列，id的字面值需要能命中一个寄存器名称
-        // 如果成功，接受这两个token，否则引发Mismatch异常
-        static Register MatchAsRegister(ITokenStream s)
+        // Match 尝试匹配下一个token
+        // 向前看一个token，若此token属于指定类型，则接受并返回此token，否则引发异常
+        public Token Match(Token.Types type)
         {
-            if (s.Lookahead() != Token.Present)
+            Token tk = stream.Lookahead();
+            if (tk.Type != type)
             {
-                throw new Errors.MismatchException(Token.Types.Present, s.Lookahead());
+                throw new Errors.MismatchException(type, stream.Lookahead());
             }
             else
             {
-                s.Consume();
+                stream.Consume();
             }
-
-            string registerName = MatchID(s).ID;
-            Register? register = Register.FindByName(registerName);
-            if (register == null)
-            {
-                throw new Errors.UnsupportedRegisterException(registerName);
-            }
-            else
-            {
-                s.Consume();
-            }
-
-            return register;
+            return tk;
         }
 
+        // MatchID 尝试将下一个token作为ID匹配
+        // 向前看一个token，若此token是id token则接受并返回一个IDToken，否则引发异常
+        public IDToken MatchID()
+        {
+            IDToken? tk = stream.Lookahead() as IDToken;
+            if (tk == null)
+            {
+                throw new Errors.MismatchException(Token.Types.ID, stream.Lookahead());
+            }
+            else
+            {
+                stream.Consume();
+            }
+            return tk;
+        }
+
+        // MatchOperator 尝试匹配下一个ID并使用此id查找operator
+        // 向前看一个token，若此token是id且id字面值命中了一个指令名，则接受此token并返回对于的operator，否则引发异常
+        public Operator MatchOperator()
+        {
+            IDToken? tk = stream.Lookahead() as IDToken;
+            Operator? op = null;
+            if (tk != null && (op = Operator.FindByName(tk.ID.ToLower())) != null)
+            {
+                stream.Consume();
+                return op;
+            }
+            throw new Errors.MismatchException(Token.Types.ID, stream.Lookahead());
+        }
+
+        // MatchRegister 尝试将从token流的头部匹配一个寄存器名称模式
+        // 向前看两个token，第一个token必须为"%"，第二个token为id且id字面值为一个寄存器名称
+        // 如果满足上述条件，则接受这两个token并返回对应的寄存器，否则引发异常
+        public Register MatchRegister()
+        {
+            if (stream.Lookahead() != Token.Present)
+            {
+                throw new Errors.MismatchException(Token.Types.Present, stream.Lookahead());
+            }
+
+            IDToken? tk = stream.Lookahead(2) as IDToken;
+            Register? register = null;
+            if (tk != null && (register = Register.FindByName(tk.ID.ToLower())) != null)
+            {
+                stream.Consume(2);
+                return register;
+            }
+            throw new Errors.MismatchException(Token.Types.ID, stream.Lookahead(2));
+        }
     }
 }
