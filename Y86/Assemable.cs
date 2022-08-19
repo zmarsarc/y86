@@ -102,7 +102,9 @@ namespace Y86.Assemable
             Present,    // 符号 "%"
             Dollar,     // 符号 "$"
             Colon,      // 符号 ":"
-            Hashtag     // 符号 “#”
+            Hashtag,    // 符号 “#”
+            LeftParentheses, // 符号 "("
+            RightParentheses, // 符号 ")"
         }
 
         public Types Type { get; }
@@ -120,6 +122,8 @@ namespace Y86.Assemable
         public static Token Colon = new(Types.Colon);
         public static Token Hashtag = new(Types.Hashtag);
         public static Token Whitespace = new(Types.Whitespace);
+        public static Token LeftParentheses = new(Types.LeftParentheses);
+        public static Token RightParentheses = new(Types.RightParentheses);
     }
 
     // Token 子类
@@ -311,6 +315,34 @@ namespace Y86.Assemable
                 return result.ToArray();
             }
         }
+
+        // MoveBetweenMemoryAndRegister 在寄存器和内存间（或反过来）移动数据
+        public class MoveBetweenMemoryAndRegister : Instruction
+        {
+            public Register DataRegister { get; } // 数据寄存器
+            public Register BaseAddressRegister { get; } // 源址基址寄存器
+            public Int32 AddressOffset { get; } // 源址偏移地址
+
+            public MoveBetweenMemoryAndRegister(Operator op, Register addr, Register data, Int32 offset) : base(op)
+            {
+                DataRegister = data;
+                BaseAddressRegister = addr;
+                AddressOffset = offset;
+            }
+
+            public override byte[] Encode()
+            {
+                List<byte> result = new();
+                result.Add(Operator.Code);
+
+                int regCode = (DataRegister.Code << 4) | BaseAddressRegister.Code;
+                result.Add((byte)regCode);
+
+                result.AddRange(ToLittleEndian(BitConverter.GetBytes(AddressOffset)));
+
+                return result.ToArray();
+            }
+        }
     }
 
     public class AIL
@@ -457,7 +489,33 @@ namespace Y86.Assemable
                 return new Instructions.MoveImmediateNumberToRegister(op, immediateNumber.Value, register);
             }
 
-            // TODO: implement me!
+            // rmmovl将数据从寄存器移动到内存，采用基址位移寻址
+            // 命令格式 rmmovl %ra, offset(%rb)
+            if (op == Operator.RMMOVL)
+            {
+                Register dataRegister = helper.MatchRegister();
+                helper.Match(Token.Comma);
+                Tokens.IntToken<int> offset = helper.MatchInteger();
+                helper.Match(Token.LeftParentheses);
+                Register baseRegister = helper.MatchRegister();
+                helper.Match(Token.RightParentheses);
+                return new Instructions.MoveBetweenMemoryAndRegister(op, baseRegister, dataRegister, offset.Value);
+            }
+
+            // mrmovl 将数据从内存移动到寄存器，此阿勇基址位移寻址
+            // 命令格式 mrmovl offset(%rb), %ra
+            if (op == Operator.MRMOVL)
+            {
+                int offset = helper.MatchInteger().Value;
+                helper.Match(Token.LeftParentheses);
+                Register baseRegister = helper.MatchRegister();
+                helper.Match(Token.RightParentheses);
+                helper.Match(Token.Comma);
+                Register dataRegister = helper.MatchRegister();
+                return new Instructions.MoveBetweenMemoryAndRegister(op, baseRegister, dataRegister, offset);
+            }
+
+            // 命令全部处理，绝对不会运行到这里
             throw new NotImplementedException();
         }
     }
