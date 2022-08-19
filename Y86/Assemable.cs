@@ -76,9 +76,9 @@ namespace Y86.Assemable
         }
 
         [Serializable]
-        public class ReferenceOfLabelNotResolveException: Exception
+        public class ReferenceOfLabelNotResolveException : Exception
         {
-            public string Label {get;}
+            public string Label { get; }
             public ReferenceOfLabelNotResolveException(string label) : base() => Label = label;
             public override string ToString()
             {
@@ -96,7 +96,7 @@ namespace Y86.Assemable
             EOS,        // end of stream 代表符号流结束
             Whitespace, // 所有空白字元，用于分割两个token以避免二义性
             ID,         // 标识符如main/addl/eax等
-            Int32,      // 32位整型数
+            Int,      // 32位整型数
             Dot,        // 符号 "."
             Comma,      // 符号 ","
             Present,    // 符号 "%"
@@ -122,18 +122,24 @@ namespace Y86.Assemable
         public static Token Whitespace = new(Types.Whitespace);
     }
 
-    // ID 类型的Token，携带id信息
-    public class IDToken : Token
+    // Token 子类
+    namespace Tokens
     {
-        public string ID { get; }
-        public IDToken(string id) : base(Types.ID) => ID = id;
-    }
+        // ID 类型的Token，携带id信息
+        public class IDToken : Token
+        {
+            public string ID { get; }
+            public IDToken(string id) : base(Types.ID) => ID = id;
+        }
 
-    // Int32类型的Token，携带数值
-    public class Int32Token : Token
-    {
-        public Int32 Value { get; }
-        public Int32Token(Int32 val) : base(Types.Int32) => Value = val;
+        // Int型token，携带一个整型数
+        public class IntToken<T> : Token
+        {
+            public T Value { get; }
+
+            public IntToken(T val) : base(Types.Int) => Value = val;
+        }
+
     }
 
     public interface ITokenStream
@@ -203,6 +209,16 @@ namespace Y86.Assemable
         {
             return new byte[] { Operator.Code };
         }
+
+        // 辅助方法，确保输出的byte[]为小端
+        protected static byte[] ToLittleEndian(byte[] arr)
+        {
+            if (!BitConverter.IsLittleEndian)
+            {
+                arr.Reverse();
+            }
+            return arr;
+        }
     }
 
     // Instruction 子类
@@ -264,12 +280,34 @@ namespace Y86.Assemable
                 result.Add(Operator.Code);
 
                 byte[] addr = BitConverter.GetBytes((uint)address!);
-                if (!BitConverter.IsLittleEndian)
-                {
-                    addr.Reverse();
-                }
-                result.AddRange(addr);
-                
+                result.AddRange(ToLittleEndian(addr));
+
+                return result.ToArray();
+            }
+        }
+
+        // irmovl，移动立即数到寄存器中
+        public class MoveImmediateNumberToRegister : Instruction
+        {
+            public Int32 ImmediateNumber { get; }
+            public Register Register { get; }
+
+            public MoveImmediateNumberToRegister(Operator op, Int32 num, Register reg) : base(op)
+            {
+                ImmediateNumber = num;
+                Register = reg;
+            }
+
+            public override byte[] Encode()
+            {
+                List<byte> result = new();
+                result.Add(Operator.Code);
+
+                int regCode = (0x8 << 4) | Register.Code;
+                result.Add((byte)regCode);
+
+                result.AddRange(ToLittleEndian(BitConverter.GetBytes(ImmediateNumber)));
+
                 return result.ToArray();
             }
         }
@@ -346,7 +384,7 @@ namespace Y86.Assemable
 
         static string MatchLabel(ITokenStream s)
         {
-            IDToken? tk = s.Lookahead() as IDToken;
+            Tokens.IDToken? tk = s.Lookahead() as Tokens.IDToken;
             if (tk != null)
             {
                 s.Consume(2); // 吃掉一个id和一个冒号
@@ -360,7 +398,7 @@ namespace Y86.Assemable
         {
             if (s.Lookahead() == Token.Dot && s.Lookahead(2).Type == Token.Types.ID)
             {
-                IDToken? tk = s.Lookahead(2) as IDToken;
+                Tokens.IDToken? tk = s.Lookahead(2) as Tokens.IDToken;
                 if (tk == null) throw new ApplicationException("some code bug exists, this token must be id");
 
                 // TODO: implement me!
@@ -409,6 +447,16 @@ namespace Y86.Assemable
                 return new Instructions.DestinationLabel(op, label);
             }
 
+            if (op == Operator.IRMOVL)
+            {
+                // 匹配一个立即数和一个寄存器
+                helper.Match(Token.Dollar);
+                Tokens.IntToken<int> immediateNumber = helper.MatchInteger();
+                helper.Match(Token.Comma);
+                Register register = helper.MatchRegister();
+                return new Instructions.MoveImmediateNumberToRegister(op, immediateNumber.Value, register);
+            }
+
             // TODO: implement me!
             throw new NotImplementedException();
         }
@@ -454,9 +502,9 @@ namespace Y86.Assemable
 
         // MatchID 尝试将下一个token作为ID匹配
         // 向前看一个token，若此token是id token则接受并返回一个IDToken，否则引发异常
-        public IDToken MatchID()
+        public Tokens.IDToken MatchID()
         {
-            IDToken? tk = stream.Lookahead() as IDToken;
+            Tokens.IDToken? tk = stream.Lookahead() as Tokens.IDToken;
             if (tk == null)
             {
                 throw new Errors.MismatchException(Token.Types.ID, stream.Lookahead());
@@ -472,7 +520,7 @@ namespace Y86.Assemable
         // 向前看一个token，若此token是id且id字面值命中了一个指令名，则接受此token并返回对于的operator，否则引发异常
         public Operator MatchOperator()
         {
-            IDToken? tk = stream.Lookahead() as IDToken;
+            Tokens.IDToken? tk = stream.Lookahead() as Tokens.IDToken;
             Operator? op = null;
             if (tk != null && (op = Operator.FindByName(tk.ID.ToLower())) != null)
             {
@@ -492,7 +540,7 @@ namespace Y86.Assemable
                 throw new Errors.MismatchException(Token.Types.Present, stream.Lookahead());
             }
 
-            IDToken? tk = stream.Lookahead(2) as IDToken;
+            Tokens.IDToken? tk = stream.Lookahead(2) as Tokens.IDToken;
             Register? register = null;
             if (tk != null && (register = Register.FindByName(tk.ID.ToLower())) != null)
             {
@@ -500,6 +548,23 @@ namespace Y86.Assemable
                 return register;
             }
             throw new Errors.MismatchException(Token.Types.ID, stream.Lookahead(2));
+        }
+
+        // MatchInteger 尝试从输入的符号流头部匹配一个整数
+        // 向前看一个token，如果此token是整型token且数值类型为int32则接受并返回此token，否则引发异常
+        public Tokens.IntToken<Int32> MatchInteger()
+        {
+            Token tk = stream.Lookahead();
+            Tokens.IntToken<Int32>? num = null;
+            if (tk.Type == Token.Types.Int && (num = tk as Tokens.IntToken<Int32>) != null)
+            {
+                stream.Consume();
+                return num;
+            }
+            else
+            {
+                throw new Errors.MismatchException(Token.Types.Int, tk);
+            }
         }
     }
 }
