@@ -206,6 +206,8 @@ namespace Y86.Assemable
     {
         public Operator Operator { get; }
 
+        public int Size { get => Operator.ByteSize; } // 指令长度
+
         public Instruction(Operator op) : base() => Operator = op;
 
         // 编码指令，子类需重写此指令
@@ -345,10 +347,12 @@ namespace Y86.Assemable
         }
     }
 
+    // AIL Abstract Instructoins List 抽象指令列表
+    // 包含指令和符号表
     public class AIL
     {
-        public List<AbstractInstruction> Instructions = new(); // 记录指令
-        public Dictionary<string, UInt32> Symbols = new(); // 记录符号
+        private List<AbstractInstruction> Instructions = new(); // 记录指令
+        private Dictionary<string, UInt32> Symbols = new(); // 记录符号
         private UInt32 address = 0; // 跟踪指令地址
 
         // 记录symbol到符号表
@@ -360,6 +364,13 @@ namespace Y86.Assemable
                 throw new Errors.LabelRedefinedException(name);
             }
             Symbols.Add(name, address);
+        }
+
+        // 添加一条指令到指令列表
+        public void AddInstruction(Instruction inst)
+        {
+            Instructions.Add(inst);
+            address += (uint)inst.Size;
         }
     }
 
@@ -382,7 +393,8 @@ namespace Y86.Assemable
                 // 伪指令指导汇编器的行为，成功识别到一个伪指令后需要立刻执行伪指令的操作
                 if (tk == Token.Dot)
                 {
-
+                    // TODO: implement me
+                    throw new NotImplementedException();
                 }
 
                 // label/opcode都以一个id作为先导
@@ -392,11 +404,10 @@ namespace Y86.Assemable
                     if (s.Lookahead(2) == Token.Colon)
                     {
                         ail.AddSymbol(MatchLabel(s));
-                        s.Consume(2); // 吃掉id和一个冒号
                     }
                     else
                     {
-
+                        ail.AddInstruction(MatchInstruction(s));
                     }
                     continue;
                 }
@@ -408,16 +419,18 @@ namespace Y86.Assemable
                     continue;
                 }
 
-                throw new ApplicationException();
+                // TODO: 抛出非法源代码异常
+                throw new NotImplementedException();
             }
 
             return ail;
         }
 
+        // 匹配一个符号
         static string MatchLabel(ITokenStream s)
         {
             Tokens.IDToken? tk = s.Lookahead() as Tokens.IDToken;
-            if (tk != null)
+            if (tk != null && s.Lookahead(2) == Token.Colon)
             {
                 s.Consume(2); // 吃掉一个id和一个冒号
                 return tk.ID;
