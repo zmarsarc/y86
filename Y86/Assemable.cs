@@ -14,7 +14,6 @@
 // token流是源程序中的逻辑碎片，每一个token都是一个独立的逻辑单元:
 // label定义，label引用，指令名，寄存器，立即数，基址偏移寻址，伪指令
 //
-
 using Y86.Machine;
 
 namespace Y86.Assemable
@@ -27,8 +26,8 @@ namespace Y86.Assemable
         public class MismatchException : Exception
         {
 
-            public Token Token { get; }
-            public Token.Types Expect { get; }
+            public Token? Token { get; }
+            public Token.Types? Expect { get; }
 
             public MismatchException(Token.Types expect, Token tk) : base()
             {
@@ -36,9 +35,15 @@ namespace Y86.Assemable
                 Expect = expect;
             }
 
+            public MismatchException(string msg) : base(msg) { }
+
             public override string ToString()
             {
-                return $"expect a {Expect} token, but actuan is {Token.Type}";
+                if (Token != null && Expect != null)
+                {
+                    return $"expect a {Expect} token, but actuan is {Token.Type}";
+                }
+                return base.ToString();
             }
         }
 
@@ -83,6 +88,17 @@ namespace Y86.Assemable
             public override string ToString()
             {
                 return $"reference of label\"{Label}\" is not resolve, can not encode because address is unsolved.";
+            }
+        }
+
+        [Serializable]
+        public class UnsupportedAssemableCommandException : Exception
+        {
+            public string Name { get; }
+            public UnsupportedAssemableCommandException(string name) : base() => Name = name;
+            public override string ToString()
+            {
+                return $"assemable command \"{Name}\" is not supported.";
             }
         }
     }
@@ -196,13 +212,18 @@ namespace Y86.Assemable
     }
 
     // 伪指令实现的集合
-    namespace PesudoInstructions
+    namespace PseudoInstructions
     {
         // SetInstructionPosition 伪指令，重置下一条指令的地址
         public class SetInstructionPosition : PseudoInstruction
         {
             public UInt32 Position { get; }
             public SetInstructionPosition(UInt32 pos) : base(Commands.SetPosition) => Position = pos;
+
+            public override void Apply(AIL ail)
+            {
+                ail.ResetPosition(Position);
+            }
         }
     }
 
@@ -372,10 +393,19 @@ namespace Y86.Assemable
         }
 
         // 添加一条指令到指令列表
+        // 会为新添加的指令安排指令地址，并自动增长指令地址计数器
         public void AddInstruction(Instruction inst)
         {
+            inst.Address = address;
             Instructions.Add(inst);
             address += (uint)inst.Size;
+        }
+
+        // 重置指令地址
+        // 重新指定当前指令地址计数器的值，下一条指令将会放置于新指令
+        public void ResetPosition(UInt32 pos)
+        {
+            address = pos;
         }
     }
 
@@ -398,8 +428,8 @@ namespace Y86.Assemable
                 // 伪指令指导汇编器的行为，成功识别到一个伪指令后需要立刻执行伪指令的操作
                 if (tk == Token.Dot)
                 {
-                    // TODO: implement me
-                    throw new NotImplementedException();
+                    MatchPseudoInstruction(s).Apply(ail);
+                    continue;
                 }
 
                 // label/opcode都以一个id作为先导
@@ -424,8 +454,8 @@ namespace Y86.Assemable
                     continue;
                 }
 
-                // TODO: 抛出非法源代码异常
-                throw new NotImplementedException();
+                throw new Errors.MismatchException(
+                    "expect a label/pseudo instruction/instruction name as the first element in line. invalid code.");
             }
 
             return ail;
@@ -444,18 +474,27 @@ namespace Y86.Assemable
         }
 
         // 匹配一条伪指令
+        // 伪指令格式为.cmdname
         static PseudoInstruction MatchPseudoInstruction(ITokenStream s)
         {
-            if (s.Lookahead() == Token.Dot && s.Lookahead(2).Type == Token.Types.ID)
-            {
-                Tokens.IDToken? tk = s.Lookahead(2) as Tokens.IDToken;
-                if (tk == null) throw new ApplicationException("some code bug exists, this token must be id");
+            ParseHelper helper = new(s);
 
-                // TODO: implement me!
-                throw new NotImplementedException();
+            helper.Match(Token.Dot);
+            string cmdName = helper.MatchID().ID;
+
+            if (!PseudoInstruction.CommandNames.ContainsKey(cmdName.ToLower()))
+            {
+                throw new Errors.UnsupportedAssemableCommandException(cmdName);
             }
 
-            throw new Errors.MismatchException(Token.Types.ID, s.Lookahead(2));
+            switch (PseudoInstruction.CommandNames[cmdName])
+            {
+                case PseudoInstruction.Commands.SetPosition:
+                    return new PseudoInstructions.SetInstructionPosition((uint)helper.MatchInteger().Value);
+                    // TODO: add more pseudo instruction
+            }
+
+            throw new NotImplementedException("end of match pesudo instruction, check code.");
         }
 
         // 匹配一条指令
