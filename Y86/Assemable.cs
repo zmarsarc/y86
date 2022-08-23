@@ -222,7 +222,39 @@ namespace Y86.Assemable
 
             public override void Apply(AIL ail)
             {
-                ail.ResetPosition(Position);
+                ail.Address = Position;
+            }
+        }
+
+        // Align 指令对齐，对齐到1/2/4字节
+        public class Align: PseudoInstruction
+        {
+            public int AlignByte {get;} // 对齐的字节数
+
+            public Align(int bytes) : base(Commands.Align)
+            {
+                switch (bytes)
+                {
+                    case 1:
+                    case 2:
+                    case 4:
+                        AlignByte = bytes;
+                        break;
+                    default:
+                        throw new Errors.UnsupportedAssemableCommandException("align bytes must be 1/2/4");
+                }
+            }
+
+            public override void Apply(AIL ail)
+            {
+                int result = 0;
+                int rem = Math.DivRem((int)ail.Address, AlignByte, out result);
+                if (rem == 0)
+                {
+                    return;
+                }
+                int newAddr = result * AlignByte + AlignByte;
+                ail.Address = (uint)newAddr;
             }
         }
     }
@@ -379,7 +411,7 @@ namespace Y86.Assemable
     {
         private List<AbstractInstruction> Instructions = new(); // 记录指令
         private Dictionary<string, UInt32> Symbols = new(); // 记录符号
-        private UInt32 address = 0; // 跟踪指令地址
+        public UInt32 Address {get; set;} = 0; // 跟踪指令地址
 
         // 记录symbol到符号表
         // 注意，symbol不允许重复定义，已经定义过的symbol再次定义会引发异常
@@ -389,23 +421,16 @@ namespace Y86.Assemable
             {
                 throw new Errors.LabelRedefinedException(name);
             }
-            Symbols.Add(name, address);
+            Symbols.Add(name, Address);
         }
 
         // 添加一条指令到指令列表
         // 会为新添加的指令安排指令地址，并自动增长指令地址计数器
         public void AddInstruction(Instruction inst)
         {
-            inst.Address = address;
+            inst.Address = Address;
             Instructions.Add(inst);
-            address += (uint)inst.Size;
-        }
-
-        // 重置指令地址
-        // 重新指定当前指令地址计数器的值，下一条指令将会放置于新指令
-        public void ResetPosition(UInt32 pos)
-        {
-            address = pos;
+            Address += (uint)inst.Size;
         }
     }
 
@@ -491,6 +516,8 @@ namespace Y86.Assemable
             {
                 case PseudoInstruction.Commands.SetPosition:
                     return new PseudoInstructions.SetInstructionPosition((uint)helper.MatchInteger().Value);
+                case PseudoInstruction.Commands.Align:
+                    return new PseudoInstructions.Align(helper.MatchInteger().Value);
                     // TODO: add more pseudo instruction
             }
 
