@@ -188,6 +188,11 @@ namespace Y86.Assemable
 
         protected PseudoInstruction(Commands cmd) : base(0) => Command = cmd;
         protected PseudoInstruction(UInt32 addr, Commands cmd) : base(addr) => Command = cmd;
+
+        public virtual void Apply(AIL ail)
+        {
+            throw new NotImplementedException("subclass of PesudoInstruction must implement Apply method.");
+        }
     }
 
     // 伪指令实现的集合
@@ -439,7 +444,7 @@ namespace Y86.Assemable
         }
 
         // 匹配一条伪指令
-        static void MatchPseudoInstruction(ITokenStream s)
+        static PseudoInstruction MatchPseudoInstruction(ITokenStream s)
         {
             if (s.Lookahead() == Token.Dot && s.Lookahead(2).Type == Token.Types.ID)
             {
