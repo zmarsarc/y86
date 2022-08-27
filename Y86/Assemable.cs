@@ -168,11 +168,23 @@ namespace Y86.Assemable
         public void Consume(int n = 1);
     }
 
+    // AbstractInstruction 抽象指令类型，机器指令和伪指令的基类
     public class AbstractInstruction
     {
+        // Address 为指令安排的地址
         public UInt32 Address { get; set; }
+
+        // Size 指令长度
+        public virtual int Size { get => 0; }
+
         public AbstractInstruction() { }
         public AbstractInstruction(UInt32 addr) => Address = addr;
+
+        // 编码指令，子类需重写此指令
+        public virtual byte[] Encode()
+        {
+            throw new NotImplementedException("subclass must implement encode method");
+        }
     }
 
     // PesudoInstruction 伪指令类型
@@ -227,9 +239,9 @@ namespace Y86.Assemable
         }
 
         // Align 指令对齐，对齐到1/2/4字节
-        public class Align: PseudoInstruction
+        public class Align : PseudoInstruction
         {
-            public int AlignByte {get;} // 对齐的字节数
+            public int AlignByte { get; } // 对齐的字节数
 
             public Align(int bytes) : base(Commands.Align)
             {
@@ -264,15 +276,9 @@ namespace Y86.Assemable
     {
         public Operator Operator { get; }
 
-        public int Size { get => Operator.ByteSize; } // 指令长度
+        public override int Size { get => Operator.ByteSize; } // 指令长度
 
         public Instruction(Operator op) : base() => Operator = op;
-
-        // 编码指令，子类需重写此指令
-        public virtual byte[] Encode()
-        {
-            return new byte[] { Operator.Code };
-        }
 
         // 辅助方法，确保输出的byte[]为小端
         protected static byte[] ToLittleEndian(byte[] arr)
@@ -411,7 +417,7 @@ namespace Y86.Assemable
     {
         private List<AbstractInstruction> Instructions = new(); // 记录指令
         private Dictionary<string, UInt32> Symbols = new(); // 记录符号
-        public UInt32 Address {get; set;} = 0; // 跟踪指令地址
+        public UInt32 Address { get; set; } = 0; // 跟踪指令地址
 
         // 记录symbol到符号表
         // 注意，symbol不允许重复定义，已经定义过的symbol再次定义会引发异常
