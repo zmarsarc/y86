@@ -521,7 +521,7 @@ namespace Y86.Assemable
                     // TODO: add more pseudo instruction
             }
 
-            throw new NotImplementedException("end of match pesudo instruction, check code.");
+            throw new NotImplementedException("end of match pseudo instruction, check code.");
         }
 
         // 匹配一条指令
