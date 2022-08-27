@@ -269,6 +269,68 @@ namespace Y86.Assemable
                 ail.Address = (uint)newAddr;
             }
         }
+
+        // DefineData 定义数据
+        public class DefineData<T> : PseudoInstruction
+        {
+            public List<T> Data { get; } = new List<T>();
+
+            public override int Size
+            {
+                get
+                {
+                    switch (Command)
+                    {
+                        case Commands.DefineByte:
+                            return Data.Count();
+                        case Commands.DefineWord:
+                            return Data.Count() * sizeof(short);
+                        case Commands.DefineLong:
+                            return Data.Count() * sizeof(int);
+                        default:
+                            throw new Errors.UnsupportedAssemableCommandException("integer type not supported");
+                    }
+                }
+            }
+
+            public DefineData(Commands cmdType) : base(cmdType) { }
+
+            public override byte[] Encode()
+            {
+                switch (Command)
+                {
+                    case Commands.DefineByte:
+                        return (Data as List<byte> ?? new List<byte>()).ToArray();
+                    case Commands.DefineWord:
+                        {
+                            List<byte> data = new();
+                            foreach (var n in (Data as List<short> ?? new List<short>()))
+                            {
+                                byte[] code = BitConverter.GetBytes(n);
+                                data.AddRange(BitConverter.IsLittleEndian ? code : code.Reverse());
+                            }
+                            return data.ToArray();
+                        }
+                    case Commands.DefineLong:
+                        {
+                            List<byte> data = new();
+                            foreach (var n in (Data as List<int> ?? new List<int>()))
+                            {
+                                byte[] code = BitConverter.GetBytes(n);
+                                data.AddRange(BitConverter.IsLittleEndian ? code : code.Reverse());
+                            }
+                            return data.ToArray();
+                        }
+                    default:
+                        throw new Errors.UnsupportedAssemableCommandException("integer type are not supported");
+                }
+            }
+
+            public override void Apply(AIL ail)
+            {
+                ail.AddInstruction(this);
+            }
+        }
     }
 
     // Instruction 需要最终翻译为机器码的指令
@@ -432,7 +494,7 @@ namespace Y86.Assemable
 
         // 添加一条指令到指令列表
         // 会为新添加的指令安排指令地址，并自动增长指令地址计数器
-        public void AddInstruction(Instruction inst)
+        public void AddInstruction(AbstractInstruction inst)
         {
             inst.Address = Address;
             Instructions.Add(inst);
