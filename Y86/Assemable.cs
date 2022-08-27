@@ -112,7 +112,7 @@ namespace Y86.Assemable
             EOS,        // end of stream 代表符号流结束
             Whitespace, // 所有空白字元，用于分割两个token以避免二义性
             ID,         // 标识符如main/addl/eax等
-            Int,      // 32位整型数
+            Integer,    // 整型数
             Dot,        // 符号 "."
             Comma,      // 符号 ","
             Present,    // 符号 "%"
@@ -153,11 +153,11 @@ namespace Y86.Assemable
         }
 
         // Int型token，携带一个整型数
-        public class IntToken<T> : Token
+        public class IntegerToken<T> : Token
         {
             public T Value { get; }
 
-            public IntToken(T val) : base(Types.Int) => Value = val;
+            public IntegerToken(T val) : base(Types.Integer) => Value = val;
         }
 
     }
@@ -273,7 +273,7 @@ namespace Y86.Assemable
         // DefineData 定义数据
         public class DefineData<T> : PseudoInstruction
         {
-            public List<T> Data { get; } = new List<T>();
+            public List<T> Data { get; set; } = new List<T>();
 
             public override int Size
             {
@@ -583,10 +583,27 @@ namespace Y86.Assemable
             switch (PseudoInstruction.CommandNames[cmdName])
             {
                 case PseudoInstruction.Commands.SetPosition:
-                    return new PseudoInstructions.SetInstructionPosition((uint)helper.MatchInteger().Value);
+                    return new PseudoInstructions.SetInstructionPosition(helper.MatchInteger<uint>().Value);
                 case PseudoInstruction.Commands.Align:
-                    return new PseudoInstructions.Align(helper.MatchInteger().Value);
-                    // TODO: add more pseudo instruction
+                    return new PseudoInstructions.Align(helper.MatchInteger<int>().Value);
+                case PseudoInstruction.Commands.DefineByte:
+                    {
+                        PseudoInstructions.DefineData<byte> inst = new(PseudoInstruction.Commands.DefineByte);
+                        inst.Data = helper.MatchDataList<byte>();
+                        return inst;
+                    }
+                case PseudoInstruction.Commands.DefineLong:
+                    {
+                        PseudoInstructions.DefineData<int> inst = new(PseudoInstruction.Commands.DefineWord);
+                        inst.Data = helper.MatchDataList<int>();
+                        return inst;
+                    }
+                case PseudoInstruction.Commands.DefineWord:
+                    {
+                        PseudoInstructions.DefineData<short> inst = new(PseudoInstruction.Commands.DefineWord);
+                        inst.Data = helper.MatchDataList<short>();
+                        return inst;
+                    }
             }
 
             throw new NotImplementedException("end of match pseudo instruction, check code.");
@@ -635,7 +652,7 @@ namespace Y86.Assemable
             {
                 // 匹配一个立即数和一个寄存器
                 helper.Match(Token.Dollar);
-                Tokens.IntToken<int> immediateNumber = helper.MatchInteger();
+                Tokens.IntegerToken<int> immediateNumber = helper.MatchInteger<int>();
                 helper.Match(Token.Comma);
                 Register register = helper.MatchRegister();
                 return new Instructions.MoveImmediateNumberToRegister(op, immediateNumber.Value, register);
@@ -647,7 +664,7 @@ namespace Y86.Assemable
             {
                 Register dataRegister = helper.MatchRegister();
                 helper.Match(Token.Comma);
-                Tokens.IntToken<int> offset = helper.MatchInteger();
+                Tokens.IntegerToken<int> offset = helper.MatchInteger<int>();
                 helper.Match(Token.LeftParentheses);
                 Register baseRegister = helper.MatchRegister();
                 helper.Match(Token.RightParentheses);
@@ -658,7 +675,7 @@ namespace Y86.Assemable
             // 命令格式 mrmovl offset(%rb), %ra
             if (op == Operator.MRMOVL)
             {
-                int offset = helper.MatchInteger().Value;
+                int offset = helper.MatchInteger<int>().Value;
                 helper.Match(Token.LeftParentheses);
                 Register baseRegister = helper.MatchRegister();
                 helper.Match(Token.RightParentheses);
@@ -760,21 +777,36 @@ namespace Y86.Assemable
             throw new Errors.MismatchException(Token.Types.ID, stream.Lookahead(2));
         }
 
-        // MatchInteger 尝试从输入的符号流头部匹配一个整数
-        // 向前看一个token，如果此token是整型token且数值类型为int32则接受并返回此token，否则引发异常
-        public Tokens.IntToken<Int32> MatchInteger()
+        // MatchInteger 尝试从输入的符号流头部匹配一个整形数，可以是int/short/byte
+        // 向前看一个token，如果此token是整型token则接受并返回此token，否则引发异常
+        public Tokens.IntegerToken<T> MatchInteger<T>()
         {
             Token tk = stream.Lookahead();
-            Tokens.IntToken<Int32>? num = null;
-            if (tk.Type == Token.Types.Int && (num = tk as Tokens.IntToken<Int32>) != null)
+            Tokens.IntegerToken<T>? num = null;
+            if (tk.Type == Token.Types.Integer && (num = tk as Tokens.IntegerToken<T>) != null)
             {
                 stream.Consume();
                 return num;
             }
             else
             {
-                throw new Errors.MismatchException(Token.Types.Int, tk);
+                throw new Errors.MismatchException(Token.Types.Integer, tk);
             }
+        }
+
+        // MatchDataList 匹配数据列表
+        public List<T> MatchDataList<T>()
+        {
+            List<T> data = new();
+            try
+            {
+                while (true)
+                {
+                    data.Add(MatchInteger<T>().Value);
+                }
+            }
+            catch (Errors.MismatchException) { }
+            return data;
         }
     }
 }
