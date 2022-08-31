@@ -12,10 +12,10 @@ public class TestParse
         ITokenStream fakeStream = FakeSourceCodeBuilder.NewSingleOperator(Operator.NOP);
 
         // When
-        AIL result = Parser.Parse(fakeStream);
+        AbstractInstructionsList result = Parser.Parse(fakeStream);
 
         // Then
-        Assert.NotEmpty(result.Instructions);
+        Assert.NotEmpty(result);
     }
 
     [Fact]
@@ -25,10 +25,10 @@ public class TestParse
         ITokenStream fakeStream =FakeSourceCodeBuilder.NewSingleOperator(Operator.NOP);
 
         // When
-        AIL result = Parser.Parse(fakeStream);
+        AbstractInstructionsList result = Parser.Parse(fakeStream);
 
         // Then
-        Assert.Single(result.Instructions);
+        Assert.Single(result);
     }
 
     [Fact]
@@ -37,10 +37,10 @@ public class TestParse
         // Given
         ITokenStream fakeStream = FakeSourceCodeBuilder.NewSingleOperator(Operator.NOP);
         // When
-        AIL result = Parser.Parse(fakeStream);
+        AbstractInstructionsList result = Parser.Parse(fakeStream);
 
         // Then
-        Assert.IsType<Instruction>(result.Instructions.First());
+        Assert.IsType<Instruction>(result.First());
     }
 
     [Fact]
@@ -49,7 +49,7 @@ public class TestParse
         ITokenStream fakeStream = FakeSourceCodeBuilder.NewSingleOperator(Operator.NOP);
 
         // When
-        AIL result = Parser.Parse(fakeStream);
+        AbstractInstructionsList result = Parser.Parse(fakeStream);
 
         // Then
         Assert.Equal(result.Encode(), new byte[] { Operator.NOP.Code });
@@ -62,7 +62,7 @@ public class TestParse
         ITokenStream fakeStream = FakeSourceCodeBuilder.NewSingleOperator(Operator.HALT);
 
         // When
-        AIL result = Parser.Parse(fakeStream);
+        AbstractInstructionsList result = Parser.Parse(fakeStream);
     
         // Then
         Assert.Equal(result.Encode(), new byte[] {Operator.HALT.Code});
@@ -75,7 +75,7 @@ public class TestParse
         ITokenStream fakeStream = FakeSourceCodeBuilder.NewSingleOperator(Operator.RET);
 
         // When
-        AIL result = Parser.Parse(fakeStream);
+        AbstractInstructionsList result = Parser.Parse(fakeStream);
     
         // Then
         Assert.Equal(result.Encode(), new byte[] {Operator.RET.Code});

@@ -217,7 +217,7 @@ namespace Y86.Assemable
         protected PseudoInstruction(Commands cmd) : base(0) => Command = cmd;
         protected PseudoInstruction(UInt32 addr, Commands cmd) : base(addr) => Command = cmd;
 
-        public virtual void Apply(AIL ail)
+        public virtual void Apply(AbstractInstructionsList ail)
         {
             throw new NotImplementedException("subclass of PesudoInstruction must implement Apply method.");
         }
@@ -232,7 +232,7 @@ namespace Y86.Assemable
             public UInt32 Position { get; }
             public SetInstructionPosition(UInt32 pos) : base(Commands.SetPosition) => Position = pos;
 
-            public override void Apply(AIL ail)
+            public override void Apply(AbstractInstructionsList ail)
             {
                 ail.Address.Reset(Position);
             }
@@ -257,7 +257,7 @@ namespace Y86.Assemable
                 }
             }
 
-            public override void Apply(AIL ail)
+            public override void Apply(AbstractInstructionsList ail)
             {
                 int result = 0;
                 int rem = Math.DivRem((int)ail.Address.Value, AlignByte, out result);
@@ -326,9 +326,9 @@ namespace Y86.Assemable
                 }
             }
 
-            public override void Apply(AIL ail)
+            public override void Apply(AbstractInstructionsList ail)
             {
-                ail.Instructions.Add(this);
+                ail.Add(this);
             }
         }
     }
@@ -480,7 +480,7 @@ namespace Y86.Assemable
 
     // AIL Abstract Instructoins List 抽象指令列表
     // 包含指令和符号表
-    public class AIL
+    public class AbstractInstructionsList : List<AbstractInstruction>
     {
         public class CodeAddress
         {
@@ -498,60 +498,35 @@ namespace Y86.Assemable
             }
         }
 
-        public class InstructionList : List<AbstractInstruction>
-        {
-            private CodeAddress address;
-            public InstructionList(CodeAddress address) : base()
-            {
-                this.address = address;
-            }
+        public CodeAddress Address { get; private set; } // 跟踪指令地址
 
-            // 添加一条指令到指令列表
-            // 会为新添加的指令安排指令地址，并自动增长指令地址计数器
-            public new void Add(AbstractInstruction inst)
-            {
-                inst.Address = address.Value;
-                base.Add(inst);
-                address += (uint)inst.Size;
-            }
-        }
+        private Dictionary<string, uint> symbols = new();
 
-        public class SymbolTable : Dictionary<string, uint>
-        {
-            private CodeAddress address;
-
-            public SymbolTable(CodeAddress address) : base()
-            {
-                this.address = address;
-            }
-
-            // 记录symbol到符号表
-            // 注意，symbol不允许重复定义，已经定义过的symbol再次定义会引发异常
-            public void Add(string name)
-            {
-                if (ContainsKey(name))
-                {
-                    throw new Errors.LabelRedefinedException(name);
-                }
-                base.Add(name, address.Value);
-            }
-        }
-
-        public InstructionList Instructions { get; } // 记录指令
-        public SymbolTable Symbols { get; } // 记录符号
-        public CodeAddress Address { get; } // 跟踪指令地址
-
-        public AIL()
+        public AbstractInstructionsList() : base()
         {
             Address = new();
-            Instructions = new(Address);
-            Symbols = new(Address);
+        }
+
+        public new void Add(AbstractInstruction inst)
+        {
+            inst.Address = Address.Value;
+            base.Add(inst);
+            Address += (uint)inst.Size;
+        }
+
+        public void AddSymbol(string name)
+        {
+            if (symbols.ContainsKey(name))
+            {
+                throw new Errors.LabelRedefinedException(name);
+            }
+            symbols.Add(name, Address.Value);
         }
 
         public byte[] Encode()
         {
             List<byte> result = new();
-            foreach (var inst in Instructions)
+            foreach (var inst in this)
             {
                 result.AddRange(inst.Encode());
             }
@@ -561,9 +536,9 @@ namespace Y86.Assemable
 
     public class Parser
     {
-        public static AIL Parse(ITokenStream s)
+        public static AbstractInstructionsList Parse(ITokenStream s)
         {
-            AIL ail = new();    // 存放解析结果
+            AbstractInstructionsList ail = new();    // 存放解析结果
 
             // 当token流未结束时连续的解析token
             // 允许出现在语句头的有whitespace/label/伪指令/opcode，这些token可以作为先导
@@ -588,11 +563,11 @@ namespace Y86.Assemable
                     // 向前再看一个符号，如果是":"则识别为label，否则尝试匹配一个opcode
                     if (s.Lookahead(2) == Token.Colon)
                     {
-                        ail.Symbols.Add(MatchLabel(s));
+                        ail.AddSymbol(MatchLabel(s));
                     }
                     else
                     {
-                        ail.Instructions.Add(MatchInstruction(s));
+                        ail.Add(MatchInstruction(s));
                     }
                     continue;
                 }
