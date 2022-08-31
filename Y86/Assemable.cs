@@ -234,7 +234,7 @@ namespace Y86.Assemable
 
             public override void Apply(AIL ail)
             {
-                ail.Address = Position;
+                ail.Address.Reset(Position);
             }
         }
 
@@ -260,13 +260,13 @@ namespace Y86.Assemable
             public override void Apply(AIL ail)
             {
                 int result = 0;
-                int rem = Math.DivRem((int)ail.Address, AlignByte, out result);
+                int rem = Math.DivRem((int)ail.Address.Value, AlignByte, out result);
                 if (rem == 0)
                 {
                     return;
                 }
                 int newAddr = result * AlignByte + AlignByte;
-                ail.Address = (uint)newAddr;
+                ail.Address.Reset((uint)newAddr);
             }
         }
 
@@ -328,7 +328,7 @@ namespace Y86.Assemable
 
             public override void Apply(AIL ail)
             {
-                ail.AddInstruction(this);
+                ail.Instructions.Add(this);
             }
         }
     }
@@ -350,6 +350,11 @@ namespace Y86.Assemable
                 arr.Reverse();
             }
             return arr;
+        }
+
+        public override byte[] Encode()
+        {
+            return new byte[] { Operator.Code };
         }
     }
 
@@ -477,28 +482,80 @@ namespace Y86.Assemable
     // 包含指令和符号表
     public class AIL
     {
-        private List<AbstractInstruction> Instructions = new(); // 记录指令
-        private Dictionary<string, UInt32> Symbols = new(); // 记录符号
-        public UInt32 Address { get; set; } = 0; // 跟踪指令地址
-
-        // 记录symbol到符号表
-        // 注意，symbol不允许重复定义，已经定义过的symbol再次定义会引发异常
-        public void AddSymbol(string name)
+        public class CodeAddress
         {
-            if (Symbols.ContainsKey(name))
+            public uint Value { get; private set; } = 0;
+
+            public void Reset(uint addr = 0)
             {
-                throw new Errors.LabelRedefinedException(name);
+                Value = addr;
             }
-            Symbols.Add(name, Address);
+
+            public static CodeAddress operator +(CodeAddress address, uint addr)
+            {
+                address.Reset(address.Value + addr);
+                return address;
+            }
         }
 
-        // 添加一条指令到指令列表
-        // 会为新添加的指令安排指令地址，并自动增长指令地址计数器
-        public void AddInstruction(AbstractInstruction inst)
+        public class InstructionList : List<AbstractInstruction>
         {
-            inst.Address = Address;
-            Instructions.Add(inst);
-            Address += (uint)inst.Size;
+            private CodeAddress address;
+            public InstructionList(CodeAddress address) : base()
+            {
+                this.address = address;
+            }
+
+            // 添加一条指令到指令列表
+            // 会为新添加的指令安排指令地址，并自动增长指令地址计数器
+            public new void Add(AbstractInstruction inst)
+            {
+                inst.Address = address.Value;
+                base.Add(inst);
+                address += (uint)inst.Size;
+            }
+        }
+
+        public class SymbolTable : Dictionary<string, uint>
+        {
+            private CodeAddress address;
+
+            public SymbolTable(CodeAddress address) : base()
+            {
+                this.address = address;
+            }
+
+            // 记录symbol到符号表
+            // 注意，symbol不允许重复定义，已经定义过的symbol再次定义会引发异常
+            public void Add(string name)
+            {
+                if (ContainsKey(name))
+                {
+                    throw new Errors.LabelRedefinedException(name);
+                }
+                base.Add(name, address.Value);
+            }
+        }
+
+        public InstructionList Instructions { get; } // 记录指令
+        public SymbolTable Symbols { get; } // 记录符号
+        public CodeAddress Address { get; } // 跟踪指令地址
+
+        public AIL()
+        {
+            Address = new();
+            Instructions = new(Address);
+            Symbols = new(Address);
+        }
+
+        public byte[] Encode()
+        {
+            List<byte> result = new();
+            foreach (var inst in Instructions)
+            {
+                result.AddRange(inst.Encode());
+            }
+            return result.ToArray();
         }
     }
 
@@ -531,11 +588,11 @@ namespace Y86.Assemable
                     // 向前再看一个符号，如果是":"则识别为label，否则尝试匹配一个opcode
                     if (s.Lookahead(2) == Token.Colon)
                     {
-                        ail.AddSymbol(MatchLabel(s));
+                        ail.Symbols.Add(MatchLabel(s));
                     }
                     else
                     {
-                        ail.AddInstruction(MatchInstruction(s));
+                        ail.Instructions.Add(MatchInstruction(s));
                     }
                     continue;
                 }

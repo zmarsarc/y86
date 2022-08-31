@@ -32,17 +32,29 @@ class FakeSourceCodeBuilder
         return new FakeSourceCodeBuilder();
     }
 
+    public static ITokenStream NewSingleOperator(Operator op)
+    {
+        return NewSource().Operator(op).TokenStream();
+    }
+
     private List<Token> tokens = new();
     private FakeSourceCodeBuilder() {}
 
-    public void Label(string name)
+    public ITokenStream TokenStream()
+    {
+        return new FakeTokenStream(tokens);
+    }
+
+    public FakeSourceCodeBuilder Label(string name)
     {
         tokens.Add(new IDToken(name));
         tokens.Add(Token.Colon);
+        return this;
     }
 
-    public void Operator(Operator op)
+    public FakeSourceCodeBuilder Operator(Operator op)
     {
         tokens.Add(new IDToken(op.Name));
+        return this;
     }
 }
