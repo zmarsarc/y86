@@ -14,6 +14,7 @@
 // token流是源程序中的逻辑碎片，每一个token都是一个独立的逻辑单元:
 // label定义，label引用，指令名，寄存器，立即数，基址偏移寻址，伪指令
 //
+using Y86.Assemable.Instructions;
 using Y86.Machine;
 
 namespace Y86.Assemable
@@ -454,7 +455,7 @@ namespace Y86.Assemable
         {
             public Register DataRegister { get; } // 数据寄存器
             public Register BaseAddressRegister { get; } // 源址基址寄存器
-            public Int32 AddressOffset { get; } // 源址偏移地址
+            public int AddressOffset { get; } // 源址偏移地址
 
             public MoveBetweenMemoryAndRegister(Operator op, Register addr, Register data, Int32 offset) : base(op)
             {
@@ -523,8 +524,32 @@ namespace Y86.Assemable
             symbols.Add(name, Address.Value);
         }
 
+        public void AddSymbol(string name, uint address)
+        {
+            if (symbols.ContainsKey(name))
+            {
+                throw new Errors.LabelRedefinedException(name);
+            }
+            symbols.Add(name, address);
+        }
+
         public byte[] Encode()
         {
+            // resolve label address
+            foreach (var inst in this)
+            {
+                var dest = inst as DestinationLabel;
+                if (dest != null)
+                {
+                    uint addr;
+                    if (!symbols.TryGetValue(dest.Label, out addr))
+                    {
+                        throw new Errors.ReferenceOfLabelNotResolveException(dest.Label);
+                    }
+                    dest.Resolve(addr);
+                }
+            }
+
             List<byte> result = new();
             foreach (var inst in this)
             {

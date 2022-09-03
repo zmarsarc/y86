@@ -8,3 +8,4 @@ build/
 bin/
 obj/
 coverage.cobertura.xml
+/.vs

@@ -37,6 +37,44 @@ class FakeSourceCodeBuilder
         return NewSource().Operator(op).TokenStream();
     }
 
+    public static ITokenStream NewIrmovl(int immediate, Register reg)
+    {
+        return NewSource()
+            .Operator(Y86.Machine.Operator.IRMOVL)
+            .ImmediateNumber(immediate).Raw(Token.Comma).Register(reg)
+            .TokenStream();
+    }
+
+    public static ITokenStream NewRmmovl(Register src, Register dst, int offset)
+    {
+        return NewSource()
+            .Operator(Y86.Machine.Operator.RMMOVL)
+            .Register(src)
+            .Raw(Token.Comma)
+            .Raw(new IntegerToken<int>(offset))
+            .Raw(Token.LeftParentheses).Register(dst).Raw(Token.RightParentheses)
+            .TokenStream();
+    }
+
+    public static ITokenStream NewMrmovl(Register src, int offset, Register dst)
+    {
+        return NewSource()
+            .Operator(Y86.Machine.Operator.MRMOVL)
+            .Raw(new IntegerToken<int>(offset))
+            .Raw(Token.LeftParentheses).Register(src).Raw(Token.RightParentheses)
+            .Raw(Token.Comma)
+            .Register(dst)
+            .TokenStream();
+    }
+
+    public static ITokenStream NewOperationWithTwoRegisters(Operator op, Register ra, Register rb)
+    {
+        return NewSource()
+            .Operator(op)
+            .Register(ra).Raw(Token.Comma).Register(rb)
+            .TokenStream();
+    }
+
     private List<Token> tokens = new();
     private FakeSourceCodeBuilder() {}
 
@@ -52,9 +90,29 @@ class FakeSourceCodeBuilder
         return this;
     }
 
+    public  FakeSourceCodeBuilder Raw(Token tk)
+    {
+        tokens.Add(tk);
+        return this;
+    }
+
     public FakeSourceCodeBuilder Operator(Operator op)
     {
         tokens.Add(new IDToken(op.Name));
+        return this;
+    }
+
+    public FakeSourceCodeBuilder ImmediateNumber(int n)
+    {
+        tokens.Add(Token.Dollar);
+        tokens.Add(new IntegerToken<int>(n));
+        return this;
+    }
+
+    public FakeSourceCodeBuilder Register(Register reg)
+    {
+        tokens.Add(Token.Present);
+        tokens.Add(new IDToken(reg.Name));
         return this;
     }
 }
