@@ -184,4 +184,35 @@ public class TestParse
         // Then 
         Assert.Equal(result.Encode(), new byte[] { op.Code }.Concat(BitConverter.GetBytes(address)));
     }
+
+    [Fact]
+    public void ParseShouldMatchLabel()
+    {
+        // Given
+        ITokenStream fakeStream = FakeSourceCodeBuilder.NewSource().Label("main").TokenStream();
+
+        // When
+        var result = Parser.Parse(fakeStream);
+
+        // Then
+        Assert.True(result.TryGetSymbolAddress("main", out _));
+    }
+
+    [Fact]
+    public void ParseShouldSetCurrectAddressOfLabel()
+    {
+        // Given
+        var fakeStream = FakeSourceCodeBuilder.NewSource().PseudoInstruction("POS")
+            .Integer<uint>(0x100)
+            .Label("main")
+            .TokenStream();
+
+        // When
+        var result = Parser.Parse(fakeStream);
+        uint addr;
+        result.TryGetSymbolAddress("main", out addr);
+
+        // Then
+        Assert.Equal((uint)0x100, addr);
+    }
 }

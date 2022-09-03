@@ -115,4 +115,17 @@ class FakeSourceCodeBuilder
         tokens.Add(new IDToken(reg.Name));
         return this;
     }
+
+    public FakeSourceCodeBuilder PseudoInstruction(string instName)
+    {
+        tokens.Add(Token.Dot);
+        tokens.Add(new IDToken(instName));
+        return this;
+    }
+
+    public FakeSourceCodeBuilder Integer<T>(T num)
+    {
+        tokens.Add(new IntegerToken<T>(num));
+        return this;
+    }
 }

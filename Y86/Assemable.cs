@@ -533,6 +533,11 @@ namespace Y86.Assemable
             symbols.Add(name, address);
         }
 
+        public bool TryGetSymbolAddress(string syb, out uint addr)
+        {
+            return symbols.TryGetValue(syb, out addr);
+        }
+
         public byte[] Encode()
         {
             // resolve label address
@@ -637,7 +642,7 @@ namespace Y86.Assemable
                 throw new Errors.UnsupportedAssemableCommandException(cmdName);
             }
 
-            switch (PseudoInstruction.CommandNames[cmdName])
+            switch (PseudoInstruction.CommandNames[cmdName.ToLower()])
             {
                 case PseudoInstruction.Commands.SetPosition:
                     return new PseudoInstructions.SetInstructionPosition(helper.MatchInteger<uint>().Value);
